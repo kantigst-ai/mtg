@@ -1,0 +1,2547 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>MTG Judge Companion — Помощник для настольных партий Magic: The Gathering</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Cinzel', 'Georgia', 'serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          },
+          colors: {
+            mana: {
+              w: '#F8F6D8',
+              u: '#38BDF8',
+              b: '#C084FC',
+              r: '#F87171',
+              g: '#34D399',
+              gold: '#D4AF37'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      background-color: #090d16;
+      background-image:
+        radial-gradient(circle at 15% 10%, rgba(14, 104, 171, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 85% 15%, rgba(211, 32, 42, 0.10) 0%, transparent 40%),
+        radial-gradient(circle at 50% 90%, rgba(212, 175, 55, 0.08) 0%, transparent 50%);
+      background-attachment: fixed;
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mtg-card-surface {
+      background: linear-gradient(145deg, rgba(30, 41, 59, 0.88) 0%, rgba(15, 23, 42, 0.96) 100%);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+    }
+    .mtg-gold-border {
+      border-color: rgba(212, 175, 55, 0.45);
+      box-shadow: 0 0 20px -4px rgba(212, 175, 55, 0.2), inset 0 1px 0 0 rgba(212, 175, 55, 0.2);
+    }
+    .mana-pip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.35rem;
+      height: 1.35rem;
+      border-radius: 9999px;
+      font-weight: 700;
+      font-size: 0.72rem;
+      line-height: 1;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.45), inset 0 1px 1px rgba(255,255,255,0.35);
+    }
+    .mana-w { background: #F8F6D8; color: #1E293B; border: 1px solid #E2D9A5; }
+    .mana-u { background: #0E68AB; color: #F0F9FF; border: 1px solid #38BDF8; }
+    .mana-b { background: #27222A; color: #E9D5FF; border: 1px solid #A855F7; }
+    .mana-r { background: #D3202A; color: #FEF2F2; border: 1px solid #F87171; }
+    .mana-g { background: #00733E; color: #ECFDF5; border: 1px solid #34D399; }
+    .mana-c { background: #64748B; color: #F8FAFC; border: 1px solid #94A3B8; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.4); }
+      50% { box-shadow: 0 0 0 6px rgba(212, 175, 55, 0); }
+    }
+    .active-step-pulse {
+      animation: pulseGlow 2.2s infinite;
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col pb-24 md:pb-10 selection:bg-amber-500/30 selection:text-amber-200">
+
+  <!-- ==========================================
+       TOP HEADER
+       ========================================== -->
+  <header class="sticky top-0 z-30 backdrop-blur-xl bg-slate-950/85 border-b border-slate-800/80">
+    <div class="max-w-4xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/25 via-slate-800 to-slate-900 border border-amber-500/40 flex items-center justify-center shrink-0 shadow-inner">
+          <i data-lucide="flame" class="w-5 h-5 text-amber-400"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h1 class="font-display font-bold text-sm sm:text-base tracking-wide text-slate-100 truncate">MTG Judge Companion</h1>
+            <span class="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">Judge L2</span>
+          </div>
+          <div class="flex items-center gap-1.5 text-[11px] text-slate-400">
+            <span id="dataSourceBadge" class="inline-flex items-center gap-1 text-emerald-400">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span id="dataSourceText">База правил готова</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- WUBRG Mana Pips & Quick Header Actions -->
+      <div class="flex items-center gap-2 shrink-0">
+        <div class="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-slate-900/90 border border-slate-800" title="Цвета маны WUBRG">
+          <span class="mana-pip mana-w" title="White — Белая мана">W</span>
+          <span class="mana-pip mana-u" title="Blue — Синяя мана">U</span>
+          <span class="mana-pip mana-b" title="Black — Черная мана">B</span>
+          <span class="mana-pip mana-r" title="Red — Красная мана">R</span>
+          <span class="mana-pip mana-g" title="Green — Зеленая мана">G</span>
+        </div>
+
+        <button id="toggleLifeCounterBtn" onclick="toggleLifeTracker()" type="button" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 transition active:scale-95" title="Быстрый счётчик жизней за столом">
+          <i data-lucide="heart" class="w-3.5 h-3.5 text-rose-400"></i>
+          <span id="headerLifeSummary" class="font-mono font-semibold">20 : 20</span>
+        </button>
+
+        <button id="openApiModalHeaderBtn" onclick="openApiModal()" type="button" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition active:scale-95" title="Настройки провайдера ИИ и API-ключа">
+          <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
+          <span id="apiKeyStatusPill" class="hidden sm:inline">Настройки ИИ</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Collapsible Tabletop Life Counter Drawer -->
+    <div id="lifeTrackerDrawer" class="hidden border-t border-slate-800/80 bg-slate-900/95 px-3 py-2.5">
+      <div class="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium text-slate-400">Формат партии:</span>
+          <button onclick="resetLife(20)" type="button" class="px-2 py-1 rounded text-xs font-mono bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Standard (20)</button>
+          <button onclick="resetLife(40)" type="button" class="px-2 py-1 rounded text-xs font-mono bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30">Commander (40)</button>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-1.5 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
+            <span class="text-xs text-sky-400 font-medium mr-1">Вы:</span>
+            <button onclick="changeLife(1, -1)" type="button" class="w-7 h-7 rounded bg-slate-800 hover:bg-rose-950/60 text-rose-300 font-mono font-bold">-1</button>
+            <span id="p1LifeDisplay" class="w-8 text-center font-mono font-bold text-base text-slate-100">20</span>
+            <button onclick="changeLife(1, 1)" type="button" class="w-7 h-7 rounded bg-slate-800 hover:bg-emerald-950/60 text-emerald-300 font-mono font-bold">+1</button>
+          </div>
+          <div class="flex items-center gap-1.5 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
+            <span class="text-xs text-rose-400 font-medium mr-1">Опп:</span>
+            <button onclick="changeLife(2, -1)" type="button" class="w-7 h-7 rounded bg-slate-800 hover:bg-rose-950/60 text-rose-300 font-mono font-bold">-1</button>
+            <span id="p2LifeDisplay" class="w-8 text-center font-mono font-bold text-base text-slate-100">20</span>
+            <button onclick="changeLife(2, 1)" type="button" class="w-7 h-7 rounded bg-slate-800 hover:bg-emerald-950/60 text-emerald-300 font-mono font-bold">+1</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Desktop Navigation Bar (md+) -->
+    <nav class="hidden md:block border-t border-slate-800/60 bg-slate-950/60" aria-label="Разделы приложения">
+      <div class="max-w-4xl mx-auto px-6 flex items-center gap-1">
+        <button onclick="switchTab('phases')" data-tab-btn="phases" type="button" class="tab-nav-btn flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition">
+          <i data-lucide="clock" class="w-4 h-4"></i>
+          <span>1. Фазы хода</span>
+        </button>
+        <button onclick="switchTab('mechanics')" data-tab-btn="mechanics" type="button" class="tab-nav-btn flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition">
+          <i data-lucide="swords" class="w-4 h-4"></i>
+          <span>2. Механики и ключевые слова</span>
+        </button>
+        <button onclick="switchTab('stack')" data-tab-btn="stack" type="button" class="tab-nav-btn flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition">
+          <i data-lucide="layers" class="w-4 h-4"></i>
+          <span>3. База: Стек и Правила</span>
+        </button>
+        <button onclick="switchTab('judge')" data-tab-btn="judge" type="button" class="tab-nav-btn flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition">
+          <i data-lucide="scale" class="w-4 h-4"></i>
+          <span>4. AI-Судья (L2)</span>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- ==========================================
+       MAIN CONTENT CONTAINER
+       ========================================== -->
+  <main class="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 pt-4 pb-8">
+
+    <!-- ==========================================
+         TAB 1: ФАЗЫ ХОДА (TURN PHASES & STEPS)
+         ========================================== -->
+    <section id="tab-phases" class="space-y-4">
+      <div class="mtg-card-surface rounded-2xl p-4 sm:p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-400 mb-1">
+              <i data-lucide="compass" class="w-3.5 h-3.5"></i>
+              <span>Структура хода • CR 500–514</span>
+            </div>
+            <h2 class="font-display text-lg sm:text-xl font-bold text-slate-100">Интерактивная цепочка фаз и шагов</h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Нажимайте на шаги цепочки или ведите партию кнопкой «Следующий шаг», чтобы проверять авто-действия, приоритет и частые ошибки.</p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button onclick="prevPhaseStep()" type="button" class="px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-1 transition active:scale-95">
+              <i data-lucide="chevron-left" class="w-4 h-4"></i>
+              <span>Назад</span>
+            </button>
+            <button onclick="nextPhaseStep()" type="button" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition active:scale-95">
+              <span>Следующий шаг</span>
+              <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+            <button onclick="toggleAllPhasesView()" id="toggleAllPhasesBtn" type="button" class="px-2.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700/80 text-xs font-medium transition">
+              Все сразу
+            </button>
+          </div>
+        </div>
+
+        <!-- Horizontal Stepper Bar -->
+        <div id="phaseStepperTrack" class="mt-4 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 pt-0.5"></div>
+      </div>
+
+      <!-- Active Step Spotlight Card -->
+      <div id="activePhaseSpotlight" class="mtg-card-surface mtg-gold-border rounded-2xl p-4 sm:p-5 transition-all"></div>
+
+      <!-- Full 5 Phases Accordion List -->
+      <div id="phasesAccordionList" class="space-y-3"></div>
+    </section>
+
+    <!-- ==========================================
+         TAB 2: МЕХАНИКИ И КЛЮЧЕВЫЕ СЛОВА
+         ========================================== -->
+    <section id="tab-mechanics" class="hidden space-y-4">
+      <div class="mtg-card-surface rounded-2xl p-4 sm:p-5 space-y-3.5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1">
+              <i data-lucide="book-open-check" class="w-3.5 h-3.5"></i>
+              <span>Вечнозелёные ключевые слова • CR 702</span>
+            </div>
+            <h2 class="font-display text-lg sm:text-xl font-bold text-slate-100">Справочник механик MTG</h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openJsonPreviewModal()" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+              <i data-lucide="file-json" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span>mtg_data.json</span>
+            </button>
+            <button onclick="downloadMtgDataJson()" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Скачать JSON</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Search Input -->
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+          <input
+            id="mechanicsSearchInput"
+            type="text"
+            oninput="handleMechanicsSearch(this.value)"
+            placeholder="Живой поиск (RU / EN): Полет, Flying, Trample, Deathtouch, Vigilance, Hexproof..."
+            class="w-full pl-10 pr-20 py-2.5 rounded-xl bg-slate-950/90 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500/70 focus:ring-1 focus:ring-amber-500/50 transition"
+          />
+          <button
+            id="clearSearchBtn"
+            onclick="clearMechanicsSearch()"
+            type="button"
+            class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 px-2 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+          >
+            Сброс
+          </button>
+        </div>
+
+        <!-- Category Tag Filters -->
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div id="mechanicsCategoryFilters" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5"></div>
+          <span id="mechanicsCountLabel" class="text-xs font-mono text-slate-400"></span>
+        </div>
+      </div>
+
+      <!-- Mechanics Cards Grid -->
+      <div id="mechanicsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3.5"></div>
+    </section>
+
+    <!-- ==========================================
+         TAB 3: БАЗА: СТЕК И ПРАВИЛА
+         ========================================== -->
+    <section id="tab-stack" class="hidden space-y-5">
+      <!-- 3.1 Interactive LIFO Stack Visualizer -->
+      <div class="mtg-card-surface rounded-2xl p-4 sm:p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3.5">
+          <div>
+            <div class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-purple-400 mb-1">
+              <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+              <span>Зона Стека • CR 405 • Принцип LIFO</span>
+            </div>
+            <h2 class="font-display text-lg sm:text-xl font-bold text-slate-100">Интерактивная визуализация Стека (Last In, First Out)</h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Последнее сыгранное заклинание или способность всегда ложится <strong class="text-amber-300">на вершину стека</strong> и разрешается <strong class="text-amber-300">первым</strong>.</p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button onclick="loadClassicStackScenario()" type="button" class="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-medium transition">
+              Пример: Прокачка против Шока
+            </button>
+            <button onclick="clearStackSimulator()" type="button" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition">
+              Очистить
+            </button>
+          </div>
+        </div>
+
+        <!-- Add Spell Buttons -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Добавить действие в стек:</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            <button onclick="pushToStack('bear')" type="button" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-emerald-500/30 text-left transition active:scale-98">
+              <div>
+                <div class="text-xs font-bold text-emerald-300">1. Гризли 2/2</div>
+                <div class="text-[11px] text-slate-400">Существо (в свою Главную)</div>
+              </div>
+              <span class="mana-pip mana-g">2G</span>
+            </button>
+            <button onclick="pushToStack('shock')" type="button" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-rose-500/30 text-left transition active:scale-98">
+              <div>
+                <div class="text-xs font-bold text-rose-300">+ Шок (Shock)</div>
+                <div class="text-[11px] text-slate-400">Instant: 2 урона цели</div>
+              </div>
+              <span class="mana-pip mana-r">R</span>
+            </button>
+            <button onclick="pushToStack('growth')" type="button" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-emerald-500/30 text-left transition active:scale-98">
+              <div>
+                <div class="text-xs font-bold text-emerald-300">+ Гигантский Рост</div>
+                <div class="text-[11px] text-slate-400">Instant: +3/+3 до конца хода</div>
+              </div>
+              <span class="mana-pip mana-g">G</span>
+            </button>
+            <button onclick="pushToStack('counter')" type="button" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-sky-500/30 text-left transition active:scale-98">
+              <div>
+                <div class="text-xs font-bold text-sky-300">+ Отмена (Counterspell)</div>
+                <div class="text-[11px] text-slate-400">Instant: отменить верхнее</div>
+              </div>
+              <span class="mana-pip mana-u">UU</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Stack Visualizer & Judge Resolution Log -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+          <div class="md:col-span-7 bg-slate-950/90 rounded-xl p-3.5 border border-slate-800">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-mono uppercase tracking-wider text-slate-400">Текущий Стек (Вершина сверху ↓)</span>
+              <button id="resolveTopStackBtn" onclick="resolveTopOfStack()" type="button" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow transition active:scale-95">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                <span>Разрешить верхнее (LIFO)</span>
+              </button>
+            </div>
+            <div id="stackVisualList" class="space-y-2 min-h-[160px] flex flex-col justify-center"></div>
+          </div>
+
+          <div class="md:col-span-5 bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono uppercase tracking-wider text-amber-400">Журнал разрешения</span>
+              <span id="stackCreatureStatus" class="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">На столе: Медведь 2/2 (0 урона)</span>
+            </div>
+            <div id="stackResolutionLog" class="text-xs text-slate-300 space-y-1.5 max-h-48 overflow-y-auto pr-1"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3.2 Priority in 30 Seconds -->
+      <div class="mtg-card-surface rounded-2xl p-4 sm:p-5 space-y-3.5">
+        <div class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-400">
+          <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+          <span>Принцип приоритета за 30 секунд • CR 117</span>
+        </div>
+        <h3 class="font-display text-lg font-bold text-slate-100">Как передается право действовать за столом</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/90 space-y-1.5">
+            <div class="flex items-center gap-2 text-amber-300 font-semibold text-xs">
+              <span class="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center font-mono">1</span>
+              <span>Активный игрок (AP)</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">В начале каждого шага (кроме Разворота и Очистки) и после разрешения любого объекта стека приоритет всегда получает игрок, чей сейчас ход.</p>
+          </div>
+          <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/90 space-y-1.5">
+            <div class="flex items-center gap-2 text-sky-300 font-semibold text-xs">
+              <span class="w-5 h-5 rounded-full bg-sky-500/20 border border-sky-500/40 flex items-center justify-center font-mono">2</span>
+              <span>Передача по кругу (NAP)</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">Положив заклинание в стек, игрок снова получает приоритет и обычно сразу пасует, передавая право ответа оппоненту («В стек / В ответ»).</p>
+          </div>
+          <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/90 space-y-1.5">
+            <div class="flex items-center gap-2 text-emerald-300 font-semibold text-xs">
+              <span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center font-mono">3</span>
+              <span>Все спасовали подряд</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">Когда все игроки спасовали подряд: если стек не пуст — разрешается <strong>только 1 верхний</strong> элемент (и снова дается приоритет). Если пуст — переход к следующему шагу.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3.3 Card Anatomy Interactive Inspector -->
+      <div class="mtg-card-surface rounded-2xl p-4 sm:p-5 space-y-4">
+        <div>
+          <div class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1">
+            <i data-lucide="scan-eye" class="w-3.5 h-3.5"></i>
+            <span>Анатомия карты • CR 200–208</span>
+          </div>
+          <h3 class="font-display text-lg font-bold text-slate-100">Разбор элементов карты Magic: The Gathering</h3>
+          <p class="text-xs text-slate-400">Нажмите на любую зону карты, чтобы увидеть официальные правила чтения мана-стоимости, типов, текста и силы/выносливости.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
+          <div class="md:col-span-6 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 p-3.5 rounded-2xl border-2 border-slate-700 shadow-2xl flex flex-col justify-between space-y-2.5">
+            <button onclick="selectCardZone(1)" data-zone-btn="1" type="button" class="card-zone-btn w-full flex items-center justify-between px-3 py-2 rounded-lg bg-slate-900/95 border border-amber-500/50 hover:border-amber-400 text-left transition">
+              <div class="flex items-center gap-2">
+                <span class="w-5 h-5 rounded-full bg-amber-500 text-slate-950 font-mono font-bold text-xs flex items-center justify-center">1</span>
+                <span class="font-display font-bold text-xs sm:text-sm text-slate-100">Нив-Миззет, Парун</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="mana-pip mana-c">2</span>
+                <span class="mana-pip mana-u">U</span>
+                <span class="mana-pip mana-u">U</span>
+                <span class="mana-pip mana-r">R</span>
+                <span class="mana-pip mana-r">R</span>
+              </div>
+            </button>
+
+            <button onclick="selectCardZone(2)" data-zone-btn="2" type="button" class="card-zone-btn w-full h-28 rounded-lg bg-gradient-to-br from-sky-900/50 via-indigo-950/70 to-rose-900/50 border border-slate-700 hover:border-amber-400/60 flex flex-col items-center justify-center p-3 text-center transition relative overflow-hidden">
+              <span class="absolute top-2 left-2 w-5 h-5 rounded-full bg-slate-900/90 border border-amber-400/60 text-amber-300 font-mono font-bold text-xs flex items-center justify-center">2</span>
+              <i data-lucide="sparkles" class="w-7 h-7 text-amber-300/80 mb-1"></i>
+              <span class="text-xs font-medium text-slate-200">Иллюстрация и Цветовая рамка</span>
+              <span class="text-[10px] text-slate-400">Цвет карты определяется её мана-стоимостью (Сине-Красная)</span>
+            </button>
+
+            <div class="grid grid-cols-12 gap-1.5">
+              <button onclick="selectCardZone(3)" data-zone-btn="3" type="button" class="card-zone-btn col-span-9 flex items-center gap-2 px-2.5 py-2 rounded-lg bg-slate-900/95 border border-slate-700 hover:border-amber-400/60 text-left transition">
+                <span class="w-5 h-5 shrink-0 rounded-full bg-slate-800 border border-amber-400/60 text-amber-300 font-mono font-bold text-xs flex items-center justify-center">3</span>
+                <span class="text-[11px] sm:text-xs font-semibold text-slate-200 truncate">Легендарное Существо — Дракон Чародей</span>
+              </button>
+              <button onclick="selectCardZone(4)" data-zone-btn="4" type="button" class="card-zone-btn col-span-3 flex items-center justify-center gap-1 px-2 py-2 rounded-lg bg-slate-900/95 border border-slate-700 hover:border-amber-400/60 transition">
+                <span class="w-5 h-5 shrink-0 rounded-full bg-slate-800 border border-amber-400/60 text-amber-300 font-mono font-bold text-xs flex items-center justify-center">4</span>
+                <i data-lucide="shield" class="w-4 h-4 text-amber-400"></i>
+              </button>
+            </div>
+
+            <button onclick="selectCardZone(5)" data-zone-btn="5" type="button" class="card-zone-btn w-full p-3 rounded-lg bg-slate-950/90 border border-slate-700 hover:border-amber-400/60 text-left space-y-1.5 transition">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-amber-300">Полёт (Flying)</span>
+                <span class="w-5 h-5 rounded-full bg-slate-800 border border-amber-400/60 text-amber-300 font-mono font-bold text-xs flex items-center justify-center">5</span>
+              </div>
+              <p class="text-[11px] text-slate-300 leading-snug"><strong>Срабатывающая:</strong> Каждый раз, когда вы берёте карту, нанесите 1 урон любой цели.</p>
+              <p class="text-[11px] text-slate-300 leading-snug"><strong>Активируемая:</strong> <span class="font-mono text-amber-300">{U}{R}, {T}</span>: Возьмите карту. <em>(До двоеточия — цена, после — эффект)</em></p>
+              <p class="text-[10px] italic text-slate-400 border-t border-slate-800/80 pt-1">«Всякая мысль — это заклинание, ждущее формулы.»</p>
+            </button>
+
+            <div class="flex items-center justify-between pt-0.5">
+              <span class="text-[10px] font-mono text-slate-500">192/259 M • GRN • RU</span>
+              <button onclick="selectCardZone(6)" data-zone-btn="6" type="button" class="card-zone-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-600 hover:border-amber-400 transition">
+                <span class="w-5 h-5 rounded-full bg-slate-800 border border-amber-400/60 text-amber-300 font-mono font-bold text-xs flex items-center justify-center">6</span>
+                <span class="font-mono font-extrabold text-sm text-slate-100">5 / 5</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="cardAnatomyDetailBox" class="md:col-span-6 bg-slate-950/90 rounded-2xl p-4 sm:p-5 border border-slate-800 flex flex-col justify-between"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 4: AI-СУДЬЯ (MULTI-PROVIDER AI JUDGE)
+         ========================================== -->
+    <section id="tab-judge" class="hidden space-y-4">
+      <div class="mtg-card-surface rounded-2xl p-4 sm:p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3.5">
+          <div>
+            <div class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-400 mb-1">
+              <i data-lucide="scale" class="w-3.5 h-3.5"></i>
+              <span>Сертифицированный Судья L2 • Comprehensive Rules</span>
+            </div>
+            <h2 class="font-display text-lg sm:text-xl font-bold text-slate-100">AI-Судья (Google Gemini • DeepSeek • OpenAI • Custom)</h2>
+            <p class="text-xs text-slate-400">Структура ответа: 1) Четкий вердикт, 2) Механика приоритета/стека в 2 предложениях, 3) Ссылка на пункт правил CR.</p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button onclick="openApiModal()" type="button" class="px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-medium flex items-center gap-1.5 transition">
+              <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
+              <span id="judgeConfigBtnLabel">Модальное окно настроек</span>
+            </button>
+            <button onclick="clearJudgeChat()" type="button" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium flex items-center gap-1.5 transition" title="Очистить историю споров">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              <span>Очистить чат</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- INLINE AI PROVIDER SETTINGS PANEL (Directly visible in Tab 4 + synced with Modal) -->
+        <div class="p-3.5 sm:p-4 rounded-xl bg-slate-950/90 border border-amber-500/30 space-y-3">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-300">
+              <i data-lucide="cpu" class="w-4 h-4"></i>
+              <span>Настройки провайдера ИИ и API-ключа (localStorage)</span>
+            </div>
+            <span id="activeProviderStatusBadge" class="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-slate-300"></span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+            <!-- 1. Dropdown Select for AI Provider -->
+            <div class="sm:col-span-5">
+              <label for="inlineProviderSelect" class="block text-[11px] font-semibold text-slate-300 mb-1">Провайдер ИИ:</label>
+              <select
+                id="inlineProviderSelect"
+                onchange="handleProviderDropdownChange(this.value)"
+                class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-100 font-medium focus:outline-none focus:border-amber-500"
+              >
+                <option value="gemini">Google Gemini (по умолчанию gemini-2.5-flash)</option>
+                <option value="deepseek">DeepSeek (https://api.deepseek.com/v1 • deepseek-chat)</option>
+                <option value="openai">OpenAI (https://api.openai.com/v1 • gpt-4o-mini)</option>
+                <option value="custom">Custom (Свой Base URL и модель)</option>
+              </select>
+            </div>
+
+            <!-- 2. Universal API Key Input for Selected Provider -->
+            <div class="sm:col-span-5">
+              <label id="inlineApiKeyLabel" for="inlineApiKeyInput" class="block text-[11px] font-semibold text-slate-300 mb-1">API-ключ для выбранного провайдера:</label>
+              <input
+                id="inlineApiKeyInput"
+                type="password"
+                oninput="handleUniversalKeyInput(this.value)"
+                placeholder="Введите API-ключ..."
+                class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <!-- 3. Save Button -->
+            <div class="sm:col-span-2 flex items-end">
+              <button
+                onclick="saveApiSettings()"
+                type="button"
+                class="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition active:scale-95"
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+
+          <!-- Base URL & Model Row (Always visible, editable for Custom or any provider) -->
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
+            <div class="sm:col-span-7">
+              <label for="inlineBaseUrlInput" class="block text-[11px] font-semibold text-slate-400 mb-1">Base URL эндпоинта:</label>
+              <input
+                id="inlineBaseUrlInput"
+                type="text"
+                oninput="handleBaseUrlInput(this.value)"
+                placeholder="https://api.deepseek.com/v1"
+                class="w-full px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-sky-300 font-mono focus:outline-none focus:border-amber-500"
+              />
+            </div>
+            <div class="sm:col-span-5">
+              <label for="inlineModelInput" class="block text-[11px] font-semibold text-slate-400 mb-1">Модель (Model ID):</label>
+              <input
+                id="inlineModelInput"
+                type="text"
+                oninput="handleModelTextInput(this.value)"
+                placeholder="gemini-2.5-flash"
+                class="w-full px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Preset Dispute Buttons -->
+        <div>
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-2">Быстрые пресеты популярных споров за столом:</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button onclick="askPresetQuestion(0)" type="button" class="text-left p-2.5 rounded-xl bg-slate-900/95 hover:bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/40 text-xs text-slate-200 flex items-start gap-2 transition active:scale-98">
+              <i data-lucide="skull" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5"></i>
+              <span>Как работает Смертельное касание + Пробивающий удар?</span>
+            </button>
+            <button onclick="askPresetQuestion(1)" type="button" class="text-left p-2.5 rounded-xl bg-slate-900/95 hover:bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/40 text-xs text-slate-200 flex items-start gap-2 transition active:scale-98">
+              <i data-lucide="shield-off" class="w-4 h-4 text-rose-400 shrink-0 mt-0.5"></i>
+              <span>Убили существо после объявления блока. Урон пройдет?</span>
+            </button>
+            <button onclick="askPresetQuestion(2)" type="button" class="text-left p-2.5 rounded-xl bg-slate-900/95 hover:bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/40 text-xs text-slate-200 flex items-start gap-2 transition active:scale-98">
+              <i data-lucide="hourglass" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5"></i>
+              <span>Можно ли активировать способность существа сразу после выхода?</span>
+            </button>
+            <button onclick="askPresetQuestion(3)" type="button" class="text-left p-2.5 rounded-xl bg-slate-900/95 hover:bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/40 text-xs text-slate-200 flex items-start gap-2 transition active:scale-98">
+              <i data-lucide="rotate-cw" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5"></i>
+              <span>В ответ на объявление атаки мне повернули существо. Оно атакует?</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Messages Window -->
+      <div class="mtg-card-surface rounded-2xl p-4 sm:p-5 flex flex-col h-[460px] sm:h-[520px]">
+        <div id="judgeChatMessages" class="flex-1 overflow-y-auto space-y-3 pr-1"></div>
+
+        <!-- Loading Indicator -->
+        <div id="judgeLoadingIndicator" class="hidden py-2.5 px-3.5 mt-2 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2.5 text-xs text-amber-300">
+          <div class="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin shrink-0"></div>
+          <span id="judgeLoadingText">Судья L2 сверяется с Comprehensive Rules...</span>
+        </div>
+
+        <!-- Question Input Form -->
+        <form id="judgeChatForm" onsubmit="handleJudgeSubmit(event)" class="mt-3 pt-3 border-t border-slate-800 flex items-center gap-2">
+          <input
+            id="judgeQuestionInput"
+            type="text"
+            placeholder="Опишите игровую ситуацию или спор за столом..."
+            class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950/90 border border-slate-700/90 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500/70"
+          />
+          <button
+            id="judgeSendBtn"
+            type="submit"
+            class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition active:scale-95 shrink-0"
+          >
+            <span>Спросить</span>
+            <i data-lucide="send" class="w-4 h-4"></i>
+          </button>
+        </form>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==========================================
+       MOBILE-FIRST BOTTOM NAVIGATION TABBAR
+       ========================================== -->
+  <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 backdrop-blur-xl bg-slate-950/95 border-t border-slate-800/90 px-2 py-1.5" aria-label="Мобильное меню разделов">
+    <div class="grid grid-cols-4 gap-1 max-w-md mx-auto">
+      <button onclick="switchTab('phases')" data-tab-btn="phases" type="button" class="tab-nav-btn flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[11px] font-medium transition">
+        <i data-lucide="clock" class="w-4 h-4 mb-0.5"></i>
+        <span>Фазы хода</span>
+      </button>
+      <button onclick="switchTab('mechanics')" data-tab-btn="mechanics" type="button" class="tab-nav-btn flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[11px] font-medium transition">
+        <i data-lucide="swords" class="w-4 h-4 mb-0.5"></i>
+        <span>Механики</span>
+      </button>
+      <button onclick="switchTab('stack')" data-tab-btn="stack" type="button" class="tab-nav-btn flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[11px] font-medium transition">
+        <i data-lucide="layers" class="w-4 h-4 mb-0.5"></i>
+        <span>Стек/База</span>
+      </button>
+      <button onclick="switchTab('judge')" data-tab-btn="judge" type="button" class="tab-nav-btn flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[11px] font-medium transition">
+        <i data-lucide="scale" class="w-4 h-4 mb-0.5"></i>
+        <span>AI-Судья</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ==========================================
+       MODAL 1: MULTI-PROVIDER AI SETTINGS MODAL
+       ========================================== -->
+  <div id="apiSettingsModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="mtg-card-surface mtg-gold-border rounded-2xl max-w-lg w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="key-round" class="w-5 h-5 text-amber-400"></i>
+          <h3 class="font-display font-bold text-base text-slate-100">Настройки ИИ-провайдера (AI-Судья)</h3>
+        </div>
+        <button onclick="closeApiModal()" type="button" class="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3.5 text-xs text-slate-300">
+        <p class="leading-relaxed">Выберите провайдера из выпадающего списка ниже. API-ключи и настройки сохраняются строго в <code>localStorage</code> вашего браузера, а запросы отправляются напрямую на соответствующий эндпоинт.</p>
+
+        <!-- REQUIRED DROPDOWN LIST OF PROVIDERS -->
+        <div>
+          <label for="aiProviderSelect" class="block font-semibold text-slate-200 mb-1">Провайдер ИИ (выпадающий список):</label>
+          <select
+            id="aiProviderSelect"
+            onchange="handleProviderDropdownChange(this.value)"
+            class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-amber-500/50 text-slate-100 text-xs font-semibold focus:outline-none focus:border-amber-400"
+          >
+            <option value="gemini">Google Gemini (модель по умолчанию gemini-2.5-flash)</option>
+            <option value="deepseek">DeepSeek (Base URL: https://api.deepseek.com/v1, модель deepseek-chat)</option>
+            <option value="openai">OpenAI (Base URL: https://api.openai.com/v1, модель gpt-4o-mini)</option>
+            <option value="custom">Custom (поля для ввода своего URL и модели)</option>
+          </select>
+        </div>
+
+        <!-- Endpoint Info Box -->
+        <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] text-slate-300 flex items-start gap-2">
+          <i data-lucide="globe" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5"></i>
+          <div id="modalProviderHintText">Эндпоинт: Google Generative Language API (generativelanguage.googleapis.com)</div>
+        </div>
+
+        <!-- API Key Input (works for any selected provider) -->
+        <div>
+          <label id="modalApiKeyLabel" for="geminiApiKeyInput" class="block font-semibold text-slate-200 mb-1">API Key (для выбранного провайдера):</label>
+          <input
+            id="geminiApiKeyInput"
+            type="password"
+            oninput="handleUniversalKeyInput(this.value)"
+            placeholder="Введите API-ключ..."
+            class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 font-mono text-xs focus:outline-none focus:border-amber-500"
+          />
+        </div>
+
+        <!-- Preset Model Selector for Gemini / DeepSeek / OpenAI -->
+        <div id="presetModelSelectWrapper">
+          <label id="modalModelLabel" for="geminiModelSelect" class="block font-semibold text-slate-200 mb-1">Модель по умолчанию / список моделей:</label>
+          <select
+            id="geminiModelSelect"
+            onchange="handlePresetModelSelectChange(this.value)"
+            class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-xs focus:outline-none focus:border-amber-500"
+          >
+            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+          </select>
+        </div>
+
+        <!-- Base URL & Custom Model Fields (Editable for Custom, and pre-filled for DeepSeek / OpenAI) -->
+        <div id="customEndpointBlock" class="space-y-3 pt-2 border-t border-slate-800/80">
+          <div>
+            <label for="customBaseUrlInput" class="block font-semibold text-slate-200 mb-1">Base URL провайдера:</label>
+            <input
+              id="customBaseUrlInput"
+              type="text"
+              oninput="handleBaseUrlInput(this.value)"
+              placeholder="https://api.deepseek.com/v1"
+              class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sky-300 font-mono text-xs focus:outline-none focus:border-amber-500"
+            />
+          </div>
+          <div>
+            <label for="customModelIdInput" class="block font-semibold text-slate-200 mb-1">Имя модели (Model ID):</label>
+            <input
+              id="customModelIdInput"
+              type="text"
+              oninput="handleModelTextInput(this.value)"
+              placeholder="deepseek-chat / gpt-4o-mini / своя модель"
+              class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-amber-300 font-mono text-xs focus:outline-none focus:border-amber-500"
+            />
+          </div>
+        </div>
+
+        <!-- Judge System Prompt Preview -->
+        <div class="p-2.5 rounded-xl bg-slate-950/90 border border-slate-800 text-[11px] text-slate-400 space-y-1">
+          <div class="font-semibold text-amber-300">Системный промпт судьи L2:</div>
+          <div class="italic">«Ты — официальный сертифицированный судья турниров Magic: The Gathering. Твоя цель — разрешать споры игроков за столом. Отвечай строго на русском языке, максимально лаконично, точно по правилам MTG (Comprehensive Rules). Не лей воду. Структура ответа: 1) Четкий вердикт (Да/Нет/Кто победил), 2) Объяснение механики приоритета/стека в 2 предложениях, 3) Ссылка на ключевой пункт правил. Никаких длинных приветствий.»</div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
+        <button onclick="clearSavedApiKey()" type="button" class="px-3 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-medium transition">
+          Удалить ключ
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="closeApiModal()" type="button" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition">
+            Закрыть
+          </button>
+          <button onclick="saveApiSettings()" type="button" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition">
+            Сохранить настройки
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 2: MTG_DATA.JSON STRUCTURE VIEWER
+       ========================================== -->
+  <div id="jsonPreviewModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="mtg-card-surface mtg-gold-border rounded-2xl max-w-2xl w-full p-5 space-y-3 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="file-json" class="w-5 h-5 text-amber-400"></i>
+          <h3 class="font-display font-bold text-base text-slate-100">Структура файла mtg_data.json</h3>
+        </div>
+        <button onclick="closeJsonPreviewModal()" type="button" class="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-400">Скрипт асинхронно подгружает <code>mtg_data.json</code>, лежащий рядом с <code>index.html</code>. При отсутствии файла используется встроенный дефолтный fallback-объект.</p>
+      <pre id="jsonModalCodeBlock" class="flex-1 overflow-auto p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-emerald-300 leading-relaxed"></pre>
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="copyMtgDataJson()" type="button" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1.5 transition">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+          <span id="copyJsonBtnText">Скопировать JSON</span>
+        </button>
+        <button onclick="downloadMtgDataJson()" type="button" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Скачать mtg_data.json</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastBanner" class="hidden fixed bottom-20 md:bottom-6 right-4 z-50 px-4 py-2.5 rounded-xl bg-slate-900/95 border border-amber-500/50 text-xs font-medium text-amber-200 shadow-xl flex items-center gap-2">
+    <i data-lucide="check-circle-2" class="w-4 h-4 text-amber-400"></i>
+    <span id="toastMessageText">Сохранено</span>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. ВСТРОЕННЫЙ ДЕФОЛТНЫЙ FALLBACK-ОБЪЕКТ MTG_DATA.JSON (18 КЛЮЧЕВЫХ СЛОВ)
+    // =========================================================================
+    const FALLBACK_MTG_DATA = [
+  {
+    "id": "flying",
+    "name_ru": "Полёт",
+    "name_en": "Flying",
+    "category": "Боевые",
+    "RuleCR": "CR 702.9",
+    "description": "Существо с Полётом не может быть заблокировано существами без Полёта (Flying) или Захвата (Reach). Само существо с Полётом может блокировать как летающих, так и наземных атакующих.",
+    "example": "Ваш атакующий Дракон 4/4 с Полётом пролетает над наземным Медведем 2/2 оппонента (тот не может назначить блок). Но Гигантский Паук 2/4 с Захватом (Reach) может встать в блок против Дракона."
+  },
+  {
+    "id": "trample",
+    "name_ru": "Пробивающий удар",
+    "name_en": "Trample",
+    "category": "Боевые",
+    "RuleCR": "CR 702.19",
+    "description": "Если атакующее существо с Пробивающим ударом заблокировано, вам достаточно распределить летальный урон всем блокирующим его существам, а весь оставшийся урон можно назначить защищающемуся игроку, planeswalker-у или битве.",
+    "example": "Существо 5/5 с Пробивающим ударом блокируют существом 2/2: вы назначаете 2 урона блоку (этого достаточно для летального урона), а оставшиеся 3 урона «пробивают» в лицо защищающемуся игроку."
+  },
+  {
+    "id": "vigilance",
+    "name_ru": "Бдительность",
+    "name_en": "Vigilance",
+    "category": "Боевые",
+    "RuleCR": "CR 702.20",
+    "description": "Объявление этого существа атакующим не вызывает его поворота (Tap). Оно остаётся развёрнутым и может в следующем ходу оппонента блокировать или активировать способности с символом {T}.",
+    "example": "Рыцарь 3/3 с Бдительностью идёт в атаку в ваш ход и не поворачивается. В ход оппонента он всё ещё развёрнут и готов встать в блок."
+  },
+  {
+    "id": "deathtouch",
+    "name_ru": "Смертельное касание",
+    "name_en": "Deathtouch",
+    "category": "Боевые",
+    "RuleCR": "CR 702.2",
+    "description": "Любое ненулевое количество урона (даже 1 единица), нанесённое источником со Смертельным касанием другому существу, считается летальным и уничтожает его при проверке действий, основанных на состоянии (SBA).",
+    "example": "Крыса 1/1 со Смертельным касанием блокирует Исполина 8/8: в шаге боевого урона оба наносят урон друг другу, и 1 единицы урона от Крысы достаточно, чтобы уничтожить Исполина 8/8."
+  },
+  {
+    "id": "first_strike",
+    "name_ru": "Первый удар",
+    "name_en": "First Strike",
+    "category": "Боевые",
+    "RuleCR": "CR 702.7",
+    "description": "Создаёт дополнительный шаг боевого урона. Существа с Первым ударом (и Двойным ударом) наносят свой боевой урон раньше обычных существ. Если блокирующее или атакующее существо без Первого удара погибает в первом шаге, оно не успевает нанести ответный урон.",
+    "example": "Ваш Дуэлянт 2/1 с Первым ударом атакует, его блокирует Зверь 2/2 без Первого удара. В первом шаге урона Дуэлянт наносит 2 урона и убивает Зверя 2/2 до того, как тот успеет ударить в ответ."
+  },
+  {
+    "id": "double_strike",
+    "name_ru": "Двойной удар",
+    "name_en": "Double Strike",
+    "category": "Боевые",
+    "RuleCR": "CR 702.4",
+    "description": "Существо наносит боевой урон дважды: сначала в шаге Первого удара, а затем в обычном шаге боевого урона.",
+    "example": "Паладин 3/3 с Двойным ударом блокируется существом 2/3. В шаге первого удара Паладин наносит 3 урона и убивает блок (0 урона в ответ). Во втором шаге Паладин уже заблокирован и без Пробивающего удара урон игроку не наносит."
+  },
+  {
+    "id": "reach",
+    "name_ru": "Захват",
+    "name_en": "Reach",
+    "category": "Защитные",
+    "RuleCR": "CR 702.17",
+    "description": "Существо с Захватом может блокировать атакующих существ со способностью Полёта (Flying), хотя само Полётом не обладает и при собственной атаке блокируется обычными наземными существами.",
+    "example": "Лучник 2/3 с Захватом перехватывает в блоке Ангела 3/3 с Полётом. Однако когда сам Лучник идёт в атаку, его может заблокировать любой Гоблин 1/1 без Полёта."
+  },
+  {
+    "id": "hexproof",
+    "name_ru": "Порчеустойчивость",
+    "name_en": "Hexproof",
+    "category": "Защитные",
+    "RuleCR": "CR 702.11",
+    "description": "Перманент или игрок с Порчеустойчивостью не может быть выбран целью заклинаний или способностей под контролем ваших оппонентов. Вы сами можете целить своё существо с Порчеустойчивостью прокачками и аурами.",
+    "example": "Оппонент не может сыграть «Убийство» (Murder — «Уничтожьте целевое существо») в вашего Эльфа с Порчеустойчивостью. Но массовая зачистка «Гнев Божий» («Уничтожьте всех существ») убьёт его, так как не содержит слова «целевое»."
+  },
+  {
+    "id": "ward",
+    "name_ru": "Оберег",
+    "name_en": "Ward",
+    "category": "Срабатывающие",
+    "RuleCR": "CR 702.21",
+    "description": "Срабатывающая способность: каждый раз, когда этот перманент становится целью заклинания или способности под контролем оппонента, отменяет то заклинание или способность, если только тот игрок не оплатит стоимость Оберега.",
+    "example": "У вашего существа есть «Оберег {2}». Оппонент целит его «Ударом Молнии» за {R}. В стек ложится триггер Оберега: если оппонент не доплатит ещё {2} маны на разрешении триггера, его Молния будет отменена."
+  },
+  {
+    "id": "protection",
+    "name_ru": "Защита",
+    "name_en": "Protection",
+    "category": "Защитные",
+    "RuleCR": "CR 702.16",
+    "description": "Мнемоника DEBT: перманент с Защитой от качества X (например, от красного) не может получать Урон (Damaged), быть Зачарованным/Снаряжённым (Enchanted/Equipped), Заблокированным (Blocked) или Выбранным целью (Targeted) источниками с качеством X.",
+    "example": "Существо с Защитой от красного нельзя поцелить красным «Шоком», его не могут блокировать красные существа, а красный пироклазм («2 урона каждому существу») предотвратит весь свой урон по нему."
+  },
+  {
+    "id": "indestructible",
+    "name_ru": "Неразрушимость",
+    "name_en": "Indestructible",
+    "category": "Защитные",
+    "RuleCR": "CR 702.12",
+    "description": "Перманент не может быть уничтожен эффектами со словом «уничтожьте» (destroy) или летальным уроном (включая Смертельное касание). Однако его всё ещё можно изгнать, заставить принести в жертву или убить снижением выносливости до 0 или меньше.",
+    "example": "Бог 5/5 с Неразрушимостью переживёт 10 урона и заклинание «Уничтожьте все существа», но погибнет от эффекта «Целевое существо получает -5/-5 до конца хода» (так как его выносливость станет 0)."
+  },
+  {
+    "id": "lifelink",
+    "name_ru": "Цепь жизни",
+    "name_en": "Lifelink",
+    "category": "Боевые",
+    "RuleCR": "CR 702.15",
+    "description": "Статическая способность: любой урон (боевой и не-боевой), наносимый этим источником, одновременно заставляет его контроллера получить столько же жизней. Это происходит мгновенно вместе с уроном и не использует стек.",
+    "example": "У вас 2 жизни. Оппонент атакует вас двумя существами 3/3. Вы блокируете одно из них своим Вампиром 2/2 с Цепью жизни: в шаге урона вы одновременно теряете 3 жизни и получаете 2 жизни, оставаясь в живых в 1 хите."
+  },
+  {
+    "id": "menace",
+    "name_ru": "Угроза",
+    "name_en": "Menace",
+    "category": "Боевые",
+    "RuleCR": "CR 702.111",
+    "description": "Атакующее существо с Угрозой не может быть заблокировано одним существом — для легального блока защищающийся игрок обязан назначить на него два или более блокирующих существ.",
+    "example": "Ваш Разбойник 3/2 с Угрозой идёт в атаку. Если у оппонента на столе только одно развёрнутое существо, он вообще не может заблокировать Разбойника. Если есть два существа 1/1 — он может поставить их оба в двойной блок."
+  },
+  {
+    "id": "haste",
+    "name_ru": "Ускорение",
+    "name_en": "Haste",
+    "category": "Боевые",
+    "RuleCR": "CR 702.10",
+    "description": "Существо с Ускорением игнорирует «болезнь вызова» (Summoning Sickness): оно может идти в атаку и активировать свои способности со значком поворота {T} сразу в том же ходу, когда вышло на поле битвы.",
+    "example": "Вы разыгрываете Гоблина 2/2 с Ускорением в свою первую главную фазу и сразу же объявляете его атакующим в фазе боя этого же хода."
+  },
+  {
+    "id": "flash",
+    "name_ru": "Миг",
+    "name_en": "Flash",
+    "category": "Защитные",
+    "RuleCR": "CR 702.8",
+    "description": "Вы можете разыграть эту карту (даже если это существо, артефакт или чары) в любой момент, когда у вас есть приоритет — точно так же, как Мгновенное заклинание (Instant).",
+    "example": "Оппонент объявил атаку существом 2/2. В шаге объявления атакующих вы разыгрываете Волка 3/3 с Мигом (Flash): он выходит на поле битвы до шага объявления блокирующих и неожиданно съедает атакующего в блоке."
+  },
+  {
+    "id": "defender",
+    "name_ru": "Защитник",
+    "name_en": "Defender",
+    "category": "Защитные",
+    "RuleCR": "CR 702.3",
+    "description": "Существо со способностью Защитника не может быть объявлено атакующим (если только специальный эффект явно не разрешает ему атаковать, как если бы у него не было Защитника).",
+    "example": "Каменная Стена 0/5 с Защитником стоит всего 1 ману и отлично сдерживает агрессивных существ в блоке, но сама пойти в атаку не может."
+  },
+  {
+    "id": "prowess",
+    "name_ru": "Искусность",
+    "name_en": "Prowess",
+    "category": "Срабатывающие",
+    "RuleCR": "CR 702.108",
+    "description": "Срабатывающая способность: каждый раз, когда вы разыгрываете заклинание, не являющееся существом (Instant, Sorcery, Artifact, Enchantment, Planeswalker, Battle), это существо получает +1/+1 до конца хода.",
+    "example": "Монах 1/2 с Искусностью идёт в атаку, оппонент не блокирует. До шага урона вы разыгрываете «Оптимизацию» (Instant) и «Гигантский Рост» (+3/+3): Искусность срабатывает дважды (+2/+2), и Монах бьёт на 1 + 3 + 2 = 6 урона."
+  },
+  {
+    "id": "dies_etb_triggers",
+    "name_ru": "Триггеры входа и смерти (ETB / Dies)",
+    "name_en": "Enters / Dies Triggers",
+    "category": "Срабатывающие",
+    "RuleCR": "CR 603.1 / 700.4",
+    "description": "Способности, начинающиеся со слов «Когда [объект] выходит на поле битвы» (Enters) или «Когда [существо] умирает» (Dies — перемещается с поля битвы на кладбище), автоматически кладутся в стек при следующем получении приоритета.",
+    "example": "Существо 2/1 со способностью «Когда умирает, возьмите карту» погибает в бою. Его триггер ложится в стек и разрешится даже в том случае, если само существо сразу после смерти изгонят из кладбища."
+  }
+];
+
+    // =========================================================================
+    // 2. ДАННЫЕ ФАЗ И ШАГОВ ХОДА (CR 500 - 514)
+    // =========================================================================
+    const TURN_PHASES_DATA = [
+      {
+        phaseId: 'beginning',
+        phaseTitle: '1. Начальная фаза (Beginning Phase)',
+        phaseCR: 'CR 501',
+        manaAccent: 'mana-w',
+        steps: [
+          {
+            id: 'untap',
+            shortName: 'Разворот',
+            name: 'Шаг разворота (Untap Step)',
+            cr: 'CR 502',
+            hasPriority: false,
+            priorityBadge: 'Приоритета НЕТ (ни у кого)',
+            autoActions: 'Перманенты активного игрока со способностью «Фазирование» меняют статус (Phasing), затем активный игрок одновременно разворачивает все свои повернутые перманенты (земли, существ, артефакты). С существ, которые были под вашим контролем с начала хода, спадает «болезнь вызова».',
+            priorityRules: 'В шаге разворота ни один игрок НЕ получает приоритет (CR 502.4). Разыгрывать Мгновенные заклинания (Instants) или активировать способности здесь нельзя. Любые сработавшие триггеры откладываются до начала шага поддержки (Upkeep).',
+            rookieMistakes: [
+              'Попытка «повернуть землю или существо оппонента в шаге разворота» — нельзя, первая возможность получить приоритет появляется только в шаге поддержки (Upkeep), когда всё уже развернулось.',
+              'Забывают развернуть все земли сразу до того, как взять карту за ход (взятие карты — это только третий шаг!).'
+            ]
+          },
+          {
+            id: 'upkeep',
+            shortName: 'Поддержка',
+            name: 'Шаг поддержки (Upkeep Step)',
+            cr: 'CR 503',
+            hasPriority: true,
+            priorityBadge: 'Приоритет ЕСТЬ (Instants / Способности)',
+            autoActions: 'В стек кладутся все срабатывающие способности «В начале вашего шага поддержки...» (At the beginning of your upkeep).',
+            priorityRules: 'Первое окно в ходу, когда игроки получают приоритет! Активный игрок получает приоритет первым. Это лучший момент, чтобы сыграть Мгновенное заклинание до того, как оппонент возьмет карту за ход.',
+            rookieMistakes: [
+              'Машинально тянут карту за ход сразу после разворота земель, пропуская триггеры поддержки (Upkeep) и не давая оппоненту возможности действовать в Upkeep.',
+              'Пытаются разыграть землю или Волшебство (Sorcery) в шаге поддержки — это разрешено только в Главную фазу при пустом стеке.'
+            ]
+          },
+          {
+            id: 'draw',
+            shortName: 'Взятие карты',
+            name: 'Шаг взятия карты (Draw Step)',
+            cr: 'CR 504',
+            hasPriority: true,
+            priorityBadge: 'Приоритет ЕСТЬ (после взятия карты)',
+            autoActions: 'В самом начале шага активный игрок берёт 1 карту из своей библиотеки (это действие правил не использует стек). В дуэльной партии на 2 игроков тот, кто ходит первым, пропускает взятие карты в свой 1-й ход (CR 103.8a).',
+            priorityRules: 'Сразу после того как карта взята (и сработали триггеры «Когда вы берёте карту»), активный игрок получает приоритет. Здесь можно разыграть Мгновенное заклинание до наступления Главной фазы.',
+            rookieMistakes: [
+              'Пытаются сказать «В ответ на взятие карты за ход я делаю...» — само взятие карты в начале шага Draw не идёт в стек, действовать до взятия нужно было в шаге Поддержки (Upkeep).'
+            ]
+          }
+        ]
+      },
+      {
+        phaseId: 'main1',
+        phaseTitle: '2. Главная фаза 1 (Precombat Main Phase)',
+        phaseCR: 'CR 505',
+        manaAccent: 'mana-u',
+        steps: [
+          {
+            id: 'main1_step',
+            shortName: 'Главная 1',
+            name: 'Добоевая главная фаза (Main Phase 1)',
+            cr: 'CR 505',
+            hasPriority: true,
+            priorityBadge: 'Полный приоритет (Все типы карт)',
+            autoActions: 'На контролируемые активным игроком Саги (Sagas) автоматически кладётся жетон знаний (Lore counter) и срабатывает соответствующая глава.',
+            priorityRules: 'Когда стек пуст и у активного игрока есть приоритет, он может разыгрывать Земли (не более 1 за ход), Существ, Волшебство (Sorcery), Артефакты, Чары, Planeswalker-ов и Битвы. Оппонент может отвечать только Мгновенными заклинаниями (Instants) и способностями.',
+            rookieMistakes: [
+              'Выкладывают сразу всех существ и тратят всю ману до боя (Main 1), вместо того чтобы пойти в атаку с открытой маной и выложить существ без Ускорения во Вторую главную фазу.',
+              'Оппонент пытается «в ответ на розыгрыш земли» уничтожить её до того, как вы получите приоритет — розыгрыш земли не использует стек!'
+            ]
+          }
+        ]
+      },
+      {
+        phaseId: 'combat',
+        phaseTitle: '3. Фаза боя (Combat Phase)',
+        phaseCR: 'CR 506',
+        manaAccent: 'mana-r',
+        steps: [
+          {
+            id: 'begin_combat',
+            shortName: 'Начало боя',
+            name: 'Шаг начала боя (Beginning of Combat)',
+            cr: 'CR 507',
+            hasPriority: true,
+            priorityBadge: 'Последний шанс ДО объявления атаки',
+            autoActions: 'Срабатывают способности со словами «В начале боя в ваш ход...» (At the beginning of combat on your turn). Атакующие ещё НЕ объявлены.',
+            priorityRules: 'Ключевое тактическое окно для защищающегося игрока! Если вы хотите повернуть (Tap) или убить существо оппонента, чтобы оно НЕ смогло пойти в атаку, делать это нужно именно здесь.',
+            rookieMistakes: [
+              'Ждут, пока оппонент повернет существо в атаку, и говорят «До атаки поворачиваю его!» — если вы дали оппоненту перейти к шагу Объявления атакующих, поворачивать существо уже поздно.',
+              'Забывают снарядить существо (Equip) или оживить землю-существо до начала боя.'
+            ]
+          },
+          {
+            id: 'declare_attackers',
+            shortName: 'Атакующие',
+            name: 'Шаг объявления атакующих (Declare Attackers)',
+            cr: 'CR 508',
+            hasPriority: true,
+            priorityBadge: 'Приоритет ПОСЛЕ назначения всех атак',
+            autoActions: 'Активный игрок ОДНОВРЕМЕННО выбирает всех атакующих существ, объявляет кого они атакуют и поворачивает их (если нет Бдительности). Срабатывают триггеры «Когда [существо] атакует...».',
+            priorityRules: 'После объявления атакующих игроки получают приоритет. Защищающийся может разыграть существо с Мигом (Flash), чтобы оно успело встать в блок в следующем шаге.',
+            rookieMistakes: [
+              'Объявляют атакующих по одному («Сначала иду этим, будешь блокировать?»). Все атакующие назначаются строго одновременно.',
+              'Думают, что триггер «Когда атакует» сработает у существа, вошедшего на поле битвы «повернутым и атакующим» (не сработает — CR 508.4).'
+            ]
+          },
+          {
+            id: 'declare_blockers',
+            shortName: 'Блокирующие',
+            name: 'Шаг объявления блокирующих (Declare Blockers)',
+            cr: 'CR 509',
+            hasPriority: true,
+            priorityBadge: 'Главное окно для раскачек и ремувала!',
+            autoActions: 'Защищающийся игрок ОДНОВРЕМЕННО назначает своих развёрнутых существ блокирующими (блокирующие НЕ поворачиваются!). Срабатывают триггеры «Когда блокирует / становится заблокированным».',
+            priorityRules: 'Игроки получают приоритет ДО нанесения боевого урона. Это последний момент сыграть боевые прокачки («Гигантский Рост») или убить существо до расчёта урона.',
+            rookieMistakes: [
+              'Поворачивают своих существ при назначении блока! Блокирующие существа НЕ поворачиваются.',
+              'Считают, что если убить блокирующее существо после назначения блока, то атакующий пробьёт урон игроку. Нет! Заблокированное существо остаётся заблокированным и без Пробивающего удара (Trample) урона игроку не нанесёт (CR 509.1h).'
+            ]
+          },
+          {
+            id: 'combat_damage',
+            shortName: 'Боевой урон',
+            name: 'Шаг боевого урона (Combat Damage Step)',
+            cr: 'CR 510',
+            hasPriority: true,
+            priorityBadge: 'Урон наносится мгновенно (не в стек!)',
+            autoActions: 'При наличии Первого/Двойного удара создаётся дополнительный шаг урона. Игроки распределяют урон, и он наносится ОДНОВРЕМЕННО (не использует стек!). Сразу же срабатывает Цепь жизни (Lifelink), существа с летальным уроном умирают (SBA), а триггеры ложатся в стек.',
+            priorityRules: 'Боевой урон НЕ идёт в стек! Игроки получают приоритет только ПОСЛЕ того, как урон уже нанесён и существа с летальным уроном погибли.',
+            rookieMistakes: [
+              'Пытаются пожертвовать блокирующее существо так, чтобы оно «и нанесло урон, и выжило» — урон в стек отменили в 2009 году.',
+              'Забывают, что связка Смертельное касание + Пробивающий удар (Deathtouch + Trample) требует назначить блоку всего 1 урон, а остальное летит в игрока.'
+            ]
+          },
+          {
+            id: 'end_combat',
+            shortName: 'Конец боя',
+            name: 'Шаг завершения боя (End of Combat Step)',
+            cr: 'CR 511',
+            hasPriority: true,
+            priorityBadge: 'Существа всё ещё считаются атакующими/блокирующими!',
+            autoActions: 'Срабатывают способности «В конце боя...» (At end of combat).',
+            priorityRules: 'Игроки получают приоритет. На протяжении всего этого шага выжившие существа всё ещё имеют статус «атакующих» или «блокирующих» до перехода во Вторую главную фазу.',
+            rookieMistakes: [
+              'Не знают, что заклинание «Уничтожьте целевое атакующее существо» можно сыграть даже после нанесения боевого урона в шаге Конца боя.'
+            ]
+          }
+        ]
+      },
+      {
+        phaseId: 'main2',
+        phaseTitle: '4. Главная фаза 2 (Postcombat Main Phase)',
+        phaseCR: 'CR 505',
+        manaAccent: 'mana-g',
+        steps: [
+          {
+            id: 'main2_step',
+            shortName: 'Главная 2',
+            name: 'Послебоевая главная фаза (Main Phase 2)',
+            cr: 'CR 505',
+            hasPriority: true,
+            priorityBadge: 'Полный приоритет (Лучшее время для существ)',
+            autoActions: 'Автоматических действий нет. Лимит на розыгрыш 1 земли за ход общий для обеих главных фаз.',
+            priorityRules: 'При пустом стеке активный игрок снова может разыгрывать существ, волшебство, артефакты, чары и землю (если не выкладывал её в Главную фазу 1).',
+            rookieMistakes: [
+              'Думают, что во вторую главную фазу можно выложить вторую землю за ход — нет, лимит 1 земля за весь ход.',
+              'Забывают, что урон на существах держится до самого конца хода (шага Очистки).'
+            ]
+          }
+        ]
+      },
+      {
+        phaseId: 'ending',
+        phaseTitle: '5. Заключительная фаза (Ending Phase)',
+        phaseCR: 'CR 512',
+        manaAccent: 'mana-b',
+        steps: [
+          {
+            id: 'end_step',
+            shortName: 'Конец хода',
+            name: 'Шаг конца хода (End Step)',
+            cr: 'CR 513',
+            hasPriority: true,
+            priorityBadge: 'Последний приоритет в ходу!',
+            autoActions: 'В начале шага срабатывают все способности «В начале заключительного шага / В начале каждого шага конца хода» (At the beginning of the end step).',
+            priorityRules: 'Последнее гарантированное окно приоритета перед передачей хода. Идеальный момент для розыгрыша Мгновенных заклинаний (Instants) в конце хода оппонента.',
+            rookieMistakes: [
+              'Считают, что эффекты «до конца хода» (+3/+3 until end of turn) заканчиваются здесь — нет, они действуют до шага Очистки (Cleanup).'
+            ]
+          },
+          {
+            id: 'cleanup',
+            shortName: 'Очистка',
+            name: 'Шаг очистки (Cleanup Step)',
+            cr: 'CR 514',
+            hasPriority: false,
+            priorityBadge: 'Приоритета НЕТ (кроме триггеров сброса/SBA)',
+            autoActions: '1) Активный игрок сбрасывает лишние карты с руки до максимума (обычно 7); 2) ОДНОВРЕМЕННО со всех существ снимается весь размеченный урон и прекращаются все эффекты «до конца хода».',
+            priorityRules: 'В норме никто НЕ получает приоритет (CR 514.3), кроме случаев, когда при сбросе карты срабатывает триггер (например, Madness).',
+            rookieMistakes: [
+              'Если существо 2/2 получило 3 урона, но выживало благодаря «+3/+3 до конца хода» (было 5/5), в шаге Очистки оно НЕ умирает, так как урон и прокачка снимаются строго одновременно (CR 514.2)!'
+            ]
+          }
+        ]
+      }
+    ];
+
+    // =========================================================================
+    // 3. АНАТОМИЯ КАРТЫ (ДАННЫЕ ДЛЯ ТАБА 3)
+    // =========================================================================
+    const CARD_ANATOMY_ZONES = {
+      1: {
+        title: '1. Название и Мана-стоимость (Name & Mana Cost)',
+        cr: 'CR 201 / CR 202',
+        summary: 'В левом верхнем углу — имя карты, в правом — символы маны для её розыгрыша.',
+        details: [
+          'Мана-ценность (Mana Value / CMC) — суммарное число маны. Для {2}{U}{U}{R}{R} она равна 6.',
+          'Цифра в сером кружке {2} (Generic mana) оплачивается маной любого цвета или бесцветной маной.',
+          'Цветные символы ({U} — синяя, {R} — красная) требуют ману строго соответствующего цвета.'
+        ]
+      },
+      2: {
+        title: '2. Иллюстрация и Цветовая идентичность',
+        cr: 'CR 202.2 / CR 903.4',
+        summary: 'Цвет карты определяется символами в её мана-стоимости (или цветовым индикатором).',
+        details: [
+          'Карта с символами {U} и {R} является одновременно Синей и Красной (многоцветной).',
+          'В формате Commander цветовая идентичность учитывает все мана-символы в стоимости и в тексте правил карты.'
+        ]
+      },
+      3: {
+        title: '3. Строка типа: Супертип — Тип — Подтип',
+        cr: 'CR 205',
+        summary: 'Определяет скорость розыгрыша карты и какие эффекты могут выбирать её целью.',
+        details: [
+          'Супертип «Легендарное» (Legendary — CR 704.5j): при контроле двух легендарных перманентов с одним именем один остаётся, а другой мгновенно уходит на кладбище.',
+          'После тире указываются Подтипы (например, типы существ: Дракон Чародей).'
+        ]
+      },
+      4: {
+        title: '4. Символ выпуска и Редкость (Set & Rarity)',
+        cr: 'CR 206',
+        summary: 'Показывает принадлежность карты к сету и её редкость.',
+        details: [
+          'Чёрный — Обычная (Common); Серебристый — Необычная (Uncommon); Золотой — Редкая (Rare); Оранжево-медный — Мифическая (Mythic Rare).'
+        ]
+      },
+      5: {
+        title: '5. Текстовое поле: Способности и Золотое правило',
+        cr: 'CR 207 / CR 101.1',
+        summary: 'Золотое правило MTG (CR 101.1): если текст карты противоречит правилам, текст карты имеет приоритет!',
+        details: [
+          'Активируемые способности (CR 602): шаблон «[Стоимость] : [Эффект]». Оплата стоимости до двоеточия не идёт в стек.',
+          'Срабатывающие способности (CR 603): начинаются со слов «Когда» (When), «Каждый раз, когда» (Whenever) или «В начале» (At).'
+        ]
+      },
+      6: {
+        title: '6. Сила и Выносливость (Power / Toughness)',
+        cr: 'CR 208',
+        summary: 'Первое число (Сила) — наносимый в бою урон. Второе (Выносливость) — сколько урона за один ход убьёт существо.',
+        details: [
+          'Урон НЕ уменьшает выносливость! Существо 5/5 с 3 размеченными повреждениями остаётся 5/5 (но с 3 урона на нём до шага Очистки).'
+        ]
+      }
+    };
+
+    // =========================================================================
+    // 4. КОНФИГУРАЦИЯ ПРОВАЙДЕРОВ ИИ И СИСТЕМНЫЙ ПРОМПТ СУДЬИ L2
+    // =========================================================================
+    const JUDGE_SYSTEM_PROMPT = "Ты — официальный сертифицированный судья турниров Magic: The Gathering. Твоя цель — разрешать споры игроков за столом. Отвечай строго на русском языке, максимально лаконично, точно по правилам MTG (Comprehensive Rules). Не лей воду. Структура ответа: 1) Четкий вердикт (Да/Нет/Кто победил), 2) Объяснение механики приоритета/стека в 2 предложениях, 3) Ссылка на ключевой пункт правил. Никаких длинных приветствий.";
+
+    const AI_PROVIDERS = {
+      gemini: {
+        id: 'gemini',
+        name: 'Google Gemini',
+        shortName: 'Google Gemini',
+        defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        defaultModel: 'gemini-2.5-flash',
+        keyPlaceholder: 'AIzaSy...',
+        hint: 'Google Gemini API: запрос уходит на https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
+        models: [
+          'gemini-2.5-flash',
+          'gemini-2.5-pro',
+          'gemini-2.0-flash'
+        ]
+      },
+      deepseek: {
+        id: 'deepseek',
+        name: 'DeepSeek',
+        shortName: 'DeepSeek',
+        defaultBaseUrl: 'https://api.deepseek.com/v1',
+        defaultModel: 'deepseek-chat',
+        keyPlaceholder: 'sk-...',
+        hint: 'DeepSeek API: Base URL https://api.deepseek.com/v1 (запрос на /chat/completions, модель по умолчанию deepseek-chat)',
+        models: [
+          'deepseek-chat',
+          'deepseek-reasoner'
+        ]
+      },
+      openai: {
+        id: 'openai',
+        name: 'OpenAI',
+        shortName: 'OpenAI',
+        defaultBaseUrl: 'https://api.openai.com/v1',
+        defaultModel: 'gpt-4o-mini',
+        keyPlaceholder: 'sk-proj-...',
+        hint: 'OpenAI API: Base URL https://api.openai.com/v1 (запрос на /chat/completions, модель по умолчанию gpt-4o-mini)',
+        models: [
+          'gpt-4o-mini',
+          'gpt-4o',
+          'o3-mini'
+        ]
+      },
+      custom: {
+        id: 'custom',
+        name: 'Custom',
+        shortName: 'Custom API',
+        defaultBaseUrl: 'https://openrouter.ai/api/v1',
+        defaultModel: 'deepseek/deepseek-chat',
+        keyPlaceholder: 'Введите API-ключ для вашего Custom URL...',
+        hint: 'Custom (OpenAI-совместимый API): укажите любой свой Base URL (например OpenRouter, локальную Ollama, прокси) и имя модели.',
+        models: [
+          'deepseek/deepseek-chat',
+          'openai/gpt-4o-mini',
+          'anthropic/claude-3.5-sonnet'
+        ]
+      }
+    };
+
+    const JUDGE_PRESETS = [
+      {
+        question: "Как работает Смертельное касание + Пробивающий удар?",
+        offlineAnswer: "1) **Четкий вердикт:** Атакующему существу со Смертельным касанием (Deathtouch) и Пробивающим ударом (Trample) достаточно назначить всего **1 единицу урона** каждому блокирующему существу (даже с Неразрушимостью), а весь оставшийся урон пробьёт в защищающегося игрока.\n\n2) **Механика приоритета/стека:** Распределение боевого урона происходит в начале шага Боевого урона без использования стека. Поскольку любой ненулевой урон (1 ед.) от источника со Смертельным касанием считается летальным, условие Пробивающего удара полностью выполняется назначением 1 урона каждому блоку.\n\n3) **Ссылка на правила:** **CR 702.19b** (Trample) и **CR 702.2c** (Deathtouch)."
+      },
+      {
+        question: "Убили существо после объявления блока. Урон пройдет?",
+        offlineAnswer: "1) **Четкий вердикт:** **Нет, урон игроку НЕ пройдет** (если у атакующего существа нет Пробивающего удара / Trample). Если же у атакующего есть Пробивающий удар (Trample), то **весь урон пройдет** в игрока.\n\n2) **Механика приоритета/стека:** Как только блокирующее существо было легально назначено в шаге Объявления блокирующих, атакующее существо считается «заблокированным» до конца боя. Уничтожение или возврат блокера в руку в стек до шага Боевого урона не отменяет факт блока, поэтому заблокированное существо без Trample не наносит урона никому.\n\n3) **Ссылка на правила:** **CR 509.1h** и **CR 510.1c**."
+      },
+      {
+        question: "Можно ли активировать способность существа сразу после выхода?",
+        offlineAnswer: "1) **Четкий вердикт:** **Нет**, если в стоимости способности есть символ поворота **{T}** (или разворота **{Q}**) и у существа нет Ускорения (Haste). **Да, можно**, если способность не содержит значка {T} в стоимости.\n\n2) **Механика приоритета/стека:** После разрешения существа активный игрок сразу получает приоритет, но «болезнь вызова» (Summoning Sickness) запрещает существу атаковать и оплачивать стоимости со значком {T}, пока оно не находилось под вашим контролем непрерывно с начала вашего последнего хода.\n\n3) **Ссылка на правила:** **CR 302.6**."
+      },
+      {
+        question: "В ответ на объявление атаки мне повернули существо. Оно атакует?",
+        offlineAnswer: "1) **Четкий вердикт:** **Да, существо уже атакует**, если оппонент дал вам перейти в шаг Объявления атакующих. Чтобы не дать существу пойти в атаку, повернуть его нужно было **раньше** — в шаге **Начала боя (Beginning of Combat)**.\n\n2) **Механика приоритета/стека:** Объявление атакующих — это действие правил (Turn-Based Action) в самом начале шага Declare Attackers, которое не использует стек. Когда игроки получают приоритет в этом шаге, существо уже повернуто и официально атакует.\n\n3) **Ссылка на правила:** **CR 507.2** и **CR 508.1**."
+      }
+    ];
+
+    // =========================================================================
+    // 5. ГЛОБАЛЬНОЕ СОСТОЯНИЕ ПРИЛОЖЕНИЯ
+    // =========================================================================
+    const state = {
+      activeTab: 'phases',
+      flatSteps: [],
+      activeStepIndex: 0,
+      showAllPhases: false,
+      mechanics: [...FALLBACK_MTG_DATA],
+      dataSource: 'fallback',
+      searchQuery: '',
+      selectedCategory: 'Все',
+      stackItems: [],
+      bearStats: { baseP: 2, baseT: 2, bonusP: 0, bonusT: 0, damage: 0, alive: true },
+      stackLogs: [],
+      selectedCardZone: 1,
+      // Multi-Provider AI State
+      provider: 'gemini',
+      apiKey: '',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      model: 'gemini-2.5-flash',
+      providerSettings: {
+        gemini: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', model: 'gemini-2.5-flash' },
+        deepseek: { apiKey: '', baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+        openai: { apiKey: '', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+        custom: { apiKey: '', baseUrl: 'https://openrouter.ai/api/v1', model: 'deepseek/deepseek-chat' }
+      },
+      chatMessages: [],
+      isAsking: false,
+      p1Life: 20,
+      p2Life: 20
+    };
+
+    function safeGetStorage(key, fallbackVal) {
+      try {
+        const val = window.localStorage.getItem(key);
+        return val !== null ? val : fallbackVal;
+      } catch (err) {
+        return fallbackVal;
+      }
+    }
+
+    function safeSetStorage(key, val) {
+      try {
+        window.localStorage.setItem(key, val);
+      } catch (err) {
+        // Ignore storage errors in restricted environments
+      }
+    }
+
+    function safeRemoveStorage(key) {
+      try {
+        window.localStorage.removeItem(key);
+      } catch (err) {
+        // Ignore storage errors
+      }
+    }
+
+    function showToast(msg) {
+      const banner = document.getElementById('toastBanner');
+      const text = document.getElementById('toastMessageText');
+      if (!banner || !text) return;
+      text.textContent = msg;
+      banner.classList.remove('hidden');
+      if (window._toastTimer) clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => {
+        banner.classList.add('hidden');
+      }, 2800);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // =========================================================================
+    // 6. АСИНХРОННАЯ ЗАГРУЗКА MTG_DATA.JSON С FALLBACK
+    // =========================================================================
+    async function loadMtgDataJson() {
+      const badgeText = document.getElementById('dataSourceText');
+      const externalJsonPath = ['mtg_data', 'json'].join('.');
+      try {
+        const response = await fetch(externalJsonPath, { cache: 'no-store' });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        if (Array.isArray(data) && data.length >= 15) {
+          state.mechanics = data;
+          state.dataSource = 'json';
+          if (badgeText) badgeText.textContent = 'mtg_data.json (' + data.length + ' механик)';
+        } else {
+          throw new Error('Invalid JSON');
+        }
+      } catch (err) {
+        state.mechanics = [...FALLBACK_MTG_DATA];
+        state.dataSource = 'fallback';
+        if (badgeText) badgeText.textContent = 'Встроенный Fallback (' + state.mechanics.length + ' механик)';
+      }
+      renderCategoryFilters();
+      renderMechanicsGrid();
+    }
+
+    // =========================================================================
+    // 7. НАВИГАЦИЯ ПО ТАБАМ И СЧЁТЧИК ЖИЗНЕЙ
+    // =========================================================================
+    function switchTab(tabId) {
+      state.activeTab = tabId;
+      ['phases', 'mechanics', 'stack', 'judge'].forEach((id) => {
+        const el = document.getElementById('tab-' + id);
+        if (el) {
+          if (id === tabId) el.classList.remove('hidden');
+          else el.classList.add('hidden');
+        }
+      });
+
+      document.querySelectorAll('.tab-nav-btn').forEach((btn) => {
+        const target = btn.getAttribute('data-tab-btn');
+        const isDesktop = btn.parentElement && btn.parentElement.classList.contains('max-w-4xl');
+        if (target === tabId) {
+          btn.className = isDesktop
+            ? 'tab-nav-btn flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 border-amber-400 text-amber-300 bg-amber-500/10 transition'
+            : 'tab-nav-btn flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 transition';
+        } else {
+          btn.className = isDesktop
+            ? 'tab-nav-btn flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition'
+            : 'tab-nav-btn flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[11px] font-medium text-slate-400 hover:text-slate-200 border border-transparent transition';
+        }
+      });
+
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    function toggleLifeTracker() {
+      const drawer = document.getElementById('lifeTrackerDrawer');
+      if (drawer) drawer.classList.toggle('hidden');
+    }
+
+    function changeLife(player, delta) {
+      if (player === 1) state.p1Life += delta;
+      else state.p2Life += delta;
+      updateLifeUI();
+    }
+
+    function resetLife(startingLife) {
+      state.p1Life = startingLife;
+      state.p2Life = startingLife;
+      updateLifeUI();
+      showToast('Счётчик жизней: ' + startingLife + ' : ' + startingLife);
+    }
+
+    function updateLifeUI() {
+      const p1 = document.getElementById('p1LifeDisplay');
+      const p2 = document.getElementById('p2LifeDisplay');
+      const summary = document.getElementById('headerLifeSummary');
+      if (p1) p1.textContent = String(state.p1Life);
+      if (p2) p2.textContent = String(state.p2Life);
+      if (summary) summary.textContent = state.p1Life + ' : ' + state.p2Life;
+    }
+
+    // =========================================================================
+    // 8. ТАБ 1: ФАЗЫ ХОДА
+    // =========================================================================
+    function initFlatSteps() {
+      const list = [];
+      TURN_PHASES_DATA.forEach((phase) => {
+        phase.steps.forEach((step) => {
+          list.push({
+            ...step,
+            phaseId: phase.phaseId,
+            phaseTitle: phase.phaseTitle,
+            phaseCR: phase.phaseCR,
+            manaAccent: phase.manaAccent
+          });
+        });
+      });
+      state.flatSteps = list;
+    }
+
+    function selectPhaseStep(index) {
+      state.activeStepIndex = index;
+      renderPhasesTab();
+    }
+
+    function nextPhaseStep() {
+      state.activeStepIndex = (state.activeStepIndex + 1) % state.flatSteps.length;
+      renderPhasesTab();
+    }
+
+    function prevPhaseStep() {
+      state.activeStepIndex = (state.activeStepIndex - 1 + state.flatSteps.length) % state.flatSteps.length;
+      renderPhasesTab();
+    }
+
+    function toggleAllPhasesView() {
+      state.showAllPhases = !state.showAllPhases;
+      const btn = document.getElementById('toggleAllPhasesBtn');
+      if (btn) btn.textContent = state.showAllPhases ? 'Режим фокуса' : 'Все сразу';
+      renderPhasesTab();
+    }
+
+    function renderPhasesTab() {
+      const track = document.getElementById('phaseStepperTrack');
+      const spotlight = document.getElementById('activePhaseSpotlight');
+      const accordionList = document.getElementById('phasesAccordionList');
+      if (!track || !spotlight || !accordionList) return;
+
+      track.innerHTML = state.flatSteps.map((step, idx) => {
+        const isActive = idx === state.activeStepIndex;
+        const activeClasses = isActive
+          ? 'bg-amber-500 text-slate-950 font-bold border-amber-300 active-step-pulse'
+          : 'bg-slate-900/90 text-slate-300 border-slate-700/80 hover:bg-slate-800';
+        const dotColor = step.hasPriority
+          ? (isActive ? 'bg-slate-950' : 'bg-emerald-400')
+          : (isActive ? 'bg-rose-900' : 'bg-rose-400');
+        return `
+          <button
+            type="button"
+            onclick="selectPhaseStep(${idx})"
+            class="shrink-0 px-3 py-1.5 rounded-xl border text-xs flex items-center gap-1.5 transition ${activeClasses}"
+          >
+            <span class="w-2 h-2 rounded-full ${dotColor}"></span>
+            <span>${idx + 1}. ${step.shortName}</span>
+          </button>
+        `;
+      }).join('');
+
+      const current = state.flatSteps[state.activeStepIndex];
+      const priorityBadgeClasses = current.hasPriority
+        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/35'
+        : 'bg-rose-500/15 text-rose-300 border-rose-500/35';
+
+      spotlight.innerHTML = `
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+          <div>
+            <div class="flex items-center gap-2 text-xs text-amber-300 font-medium">
+              <span class="mana-pip ${current.manaAccent}">★</span>
+              <span>${current.phaseTitle}</span>
+              <span class="font-mono text-slate-400">• ${current.cr}</span>
+            </div>
+            <h3 class="font-display text-base sm:text-lg font-bold text-slate-100 mt-1">${current.name}</h3>
+          </div>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border self-start sm:self-center ${priorityBadgeClasses}">
+            <i data-lucide="${current.hasPriority ? 'zap' : 'ban'}" class="w-3.5 h-3.5"></i>
+            <span>${current.priorityBadge}</span>
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3.5">
+          <div class="p-3.5 rounded-xl bg-slate-950/85 border border-slate-800/90 space-y-1.5">
+            <div class="flex items-center gap-1.5 text-xs font-bold text-sky-300 uppercase tracking-wider">
+              <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+              <span>Что происходит автоматически</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">${current.autoActions}</p>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-950/85 border border-slate-800/90 space-y-1.5">
+            <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-300 uppercase tracking-wider">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              <span>Приоритет (Instants / Способности)</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">${current.priorityRules}</p>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1.5">
+            <div class="flex items-center gap-1.5 text-xs font-bold text-amber-300 uppercase tracking-wider">
+              <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+              <span>Частые ошибки новичков</span>
+            </div>
+            <ul class="text-xs text-slate-200 space-y-1.5 list-disc list-inside leading-relaxed">
+              ${current.rookieMistakes.map(m => `<li>${m}</li>`).join('')}
+            </ul>
+          </div>
+        </div>
+      `;
+
+      let globalStepIdx = 0;
+      accordionList.innerHTML = TURN_PHASES_DATA.map((phase) => {
+        const stepsHtml = phase.steps.map((step) => {
+          const stepIndex = globalStepIdx++;
+          const isSelected = stepIndex === state.activeStepIndex;
+          const isExpanded = state.showAllPhases || isSelected;
+          const borderClass = isSelected
+            ? 'border-amber-500/60 bg-slate-900/95'
+            : 'border-slate-800/90 bg-slate-950/75 hover:border-slate-700';
+
+          return `
+            <div class="rounded-xl border transition ${borderClass}">
+              <button
+                type="button"
+                onclick="selectPhaseStep(${stepIndex})"
+                class="w-full px-3.5 py-2.5 flex items-center justify-between gap-2 text-left"
+              >
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <span class="w-6 h-6 rounded-lg text-xs font-mono font-bold flex items-center justify-center shrink-0 ${isSelected ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300'}">${stepIndex + 1}</span>
+                  <div class="min-w-0">
+                    <div class="text-xs sm:text-sm font-semibold text-slate-100 truncate">${step.name}</div>
+                    <div class="text-[11px] text-slate-400 font-mono">${step.cr} • ${step.priorityBadge}</div>
+                  </div>
+                </div>
+                <i data-lucide="${isExpanded ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 text-slate-400 shrink-0"></i>
+              </button>
+              ${isExpanded ? `
+                <div class="px-3.5 pb-3.5 pt-1 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  <div class="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <div class="font-semibold text-sky-300 mb-1">Автоматически:</div>
+                    <p class="text-slate-300 leading-relaxed">${step.autoActions}</p>
+                  </div>
+                  <div class="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <div class="font-semibold text-emerald-300 mb-1">Окно приоритета:</div>
+                    <p class="text-slate-300 leading-relaxed">${step.priorityRules}</p>
+                  </div>
+                  <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25">
+                    <div class="font-semibold text-amber-300 mb-1">Частые ошибки:</div>
+                    <ul class="text-slate-200 space-y-1 list-disc list-inside leading-relaxed">
+                      ${step.rookieMistakes.map(m => `<li>${m}</li>`).join('')}
+                    </ul>
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div class="mtg-card-surface rounded-2xl p-3.5 sm:p-4 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="mana-pip ${phase.manaAccent}">◆</span>
+                <h4 class="font-display font-bold text-sm sm:text-base text-slate-100">${phase.phaseTitle}</h4>
+              </div>
+              <span class="text-xs font-mono text-slate-400">${phase.phaseCR}</span>
+            </div>
+            <div class="space-y-2">${stepsHtml}</div>
+          </div>
+        `;
+      }).join('');
+
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    // =========================================================================
+    // 9. ТАБ 2: МЕХАНИКИ И КЛЮЧЕВЫЕ СЛОВА
+    // =========================================================================
+    function handleMechanicsSearch(val) {
+      state.searchQuery = val.trim();
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (clearBtn) {
+        if (state.searchQuery.length > 0) clearBtn.classList.remove('hidden');
+        else clearBtn.classList.add('hidden');
+      }
+      renderMechanicsGrid();
+    }
+
+    function clearMechanicsSearch() {
+      state.searchQuery = '';
+      const input = document.getElementById('mechanicsSearchInput');
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (input) input.value = '';
+      if (clearBtn) clearBtn.classList.add('hidden');
+      renderMechanicsGrid();
+    }
+
+    function selectMechanicsCategory(cat) {
+      state.selectedCategory = cat;
+      renderCategoryFilters();
+      renderMechanicsGrid();
+    }
+
+    function renderCategoryFilters() {
+      const container = document.getElementById('mechanicsCategoryFilters');
+      if (!container) return;
+      const categories = ['Все', 'Боевые', 'Защитные', 'Срабатывающие'];
+      container.innerHTML = categories.map((cat) => {
+        const count = cat === 'Все'
+          ? state.mechanics.length
+          : state.mechanics.filter(m => m.category === cat).length;
+        const isActive = state.selectedCategory === cat;
+        const btnClasses = isActive
+          ? 'bg-amber-500 text-slate-950 font-bold border-amber-400 shadow'
+          : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700/80';
+        return `
+          <button
+            type="button"
+            onclick="selectMechanicsCategory('${cat}')"
+            class="px-3 py-1.5 rounded-xl border text-xs flex items-center gap-1.5 shrink-0 transition ${btnClasses}"
+          >
+            <span>${cat}</span>
+            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono ${isActive ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-800 text-slate-400'}">${count}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderMechanicsGrid() {
+      const grid = document.getElementById('mechanicsGrid');
+      const countLabel = document.getElementById('mechanicsCountLabel');
+      if (!grid) return;
+
+      const q = state.searchQuery.toLowerCase();
+      const filtered = state.mechanics.filter((item) => {
+        const matchesCat = state.selectedCategory === 'Все' || item.category === state.selectedCategory;
+        if (!matchesCat) return false;
+        if (!q) return true;
+        return (
+          item.name_ru.toLowerCase().includes(q) ||
+          item.name_en.toLowerCase().includes(q) ||
+          item.description.toLowerCase().includes(q) ||
+          item.example.toLowerCase().includes(q) ||
+          (item.RuleCR && item.RuleCR.toLowerCase().includes(q))
+        );
+      });
+
+      if (countLabel) {
+        countLabel.textContent = 'Найдено: ' + filtered.length + ' из ' + state.mechanics.length;
+      }
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full mtg-card-surface rounded-2xl p-8 text-center space-y-2">
+            <i data-lucide="search-x" class="w-8 h-8 text-slate-500 mx-auto"></i>
+            <div class="text-sm font-semibold text-slate-200">По запросу «${escapeHtml(state.searchQuery)}» ничего не найдено</div>
+            <p class="text-xs text-slate-400">Попробуйте ввести другое ключевое слово на русском или английском языке.</p>
+          </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+        return;
+      }
+
+      const categoryStyles = {
+        'Боевые': 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+        'Защитные': 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+        'Срабатывающие': 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+      };
+
+      grid.innerHTML = filtered.map((m) => {
+        const badgeStyle = categoryStyles[m.category] || 'bg-slate-800 text-slate-300 border-slate-700';
+        return `
+          <article class="mtg-card-surface rounded-2xl p-4 flex flex-col justify-between space-y-3 hover:border-amber-500/40 transition">
+            <div class="space-y-2.5">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <h3 class="font-display font-bold text-base text-slate-100 leading-snug">
+                    ${escapeHtml(m.name_ru)}
+                    <span class="text-amber-400 font-sans font-semibold text-sm">/ ${escapeHtml(m.name_en)}</span>
+                  </h3>
+                  <span class="text-[11px] font-mono text-slate-400">${escapeHtml(m.RuleCR || 'CR 702')}</span>
+                </div>
+                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shrink-0 ${badgeStyle}">
+                  ${escapeHtml(m.category)}
+                </span>
+              </div>
+              <p class="text-xs sm:text-sm text-slate-200 leading-relaxed">${escapeHtml(m.description)}</p>
+            </div>
+
+            <div class="p-3 rounded-xl bg-slate-950/90 border border-amber-500/25 space-y-1">
+              <div class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-300">
+                <i data-lucide="swords" class="w-3.5 h-3.5"></i>
+                <span>Боевой пример за столом:</span>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">${escapeHtml(m.example)}</p>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    // =========================================================================
+    // 10. ТАБ 3: СИМУЛЯТОР СТЕКА (LIFO) И АНАТОМИЯ КАРТЫ
+    // =========================================================================
+    const STACK_TEMPLATES = {
+      bear: {
+        type: 'bear',
+        title: 'Гризли 2/2 (Существо)',
+        cost: '1G',
+        manaClass: 'mana-g',
+        effectText: 'Выходит на поле битвы как существо 2/2.'
+      },
+      shock: {
+        type: 'shock',
+        title: 'Шок (Shock)',
+        cost: 'R',
+        manaClass: 'mana-r',
+        effectText: 'Наносит 2 повреждения целевому существу (Гризли).'
+      },
+      growth: {
+        type: 'growth',
+        title: 'Гигантский Рост (Giant Growth)',
+        cost: 'G',
+        manaClass: 'mana-g',
+        effectText: 'Целевое существо (Гризли) получает +3/+3 до конца хода.'
+      },
+      counter: {
+        type: 'counter',
+        title: 'Отмена (Counterspell)',
+        cost: 'UU',
+        manaClass: 'mana-u',
+        effectText: 'Отменяет целевое заклинание, лежащее ниже в стеке.'
+      }
+    };
+
+    function loadClassicStackScenario() {
+      state.bearStats = { baseP: 2, baseT: 2, bonusP: 0, bonusT: 0, damage: 0, alive: true };
+      state.stackItems = [
+        { ...STACK_TEMPLATES.shock, id: Date.now() + 1, order: 1 },
+        { ...STACK_TEMPLATES.growth, id: Date.now() + 2, order: 2 }
+      ];
+      state.stackLogs = [
+        'Сценарий загружен: На столе Медведь 2/2.',
+        '1) Оппонент сыграл «Шок» (2 урона) -> лег в стек первым (#1).',
+        '2) В ответ вы сыграли «Гигантский Рост» (+3/+3) -> лег НА ВЕРШИНУ стека (#2).',
+        'Нажмите «Разрешить верхнее (LIFO)», чтобы увидеть разрешение сверху вниз!'
+      ];
+      renderStackSimulator();
+    }
+
+    function clearStackSimulator() {
+      state.bearStats = { baseP: 2, baseT: 2, bonusP: 0, bonusT: 0, damage: 0, alive: true };
+      state.stackItems = [];
+      state.stackLogs = ['Стек очищен. На столе Медведь 2/2. Добавьте заклинания в стек!'];
+      renderStackSimulator();
+    }
+
+    function pushToStack(templateKey) {
+      const tpl = STACK_TEMPLATES[templateKey];
+      if (!tpl) return;
+      const nextOrder = state.stackItems.length + 1;
+      state.stackItems.push({ ...tpl, id: Date.now() + Math.random(), order: nextOrder });
+      state.stackLogs.unshift(`Положено на вершину стека (#${nextOrder}): «${tpl.title}».`);
+      renderStackSimulator();
+    }
+
+    function resolveTopOfStack() {
+      if (state.stackItems.length === 0) {
+        showToast('Стек пуст! Добавьте заклинание или загрузите пример.');
+        return;
+      }
+      const topItem = state.stackItems.pop();
+      if (topItem.type === 'counter') {
+        if (state.stackItems.length > 0) {
+          const countered = state.stackItems.pop();
+          state.stackLogs.unshift(`РАЗРЕШЕНО (#${topItem.order}): «${topItem.title}» отменяет «${countered.title}»!`);
+        } else {
+          state.stackLogs.unshift(`РАЗРЕШЕНО (#${topItem.order}): «${topItem.title}» — других заклинаний в стеке не было.`);
+        }
+      } else if (topItem.type === 'growth') {
+        if (!state.bearStats.alive) {
+          state.stackLogs.unshift(`Промах цели (Fizzle CR 608.2b): Медведь уже на кладбище.`);
+        } else {
+          state.bearStats.bonusP += 3;
+          state.bearStats.bonusT += 3;
+          const totalP = state.bearStats.baseP + state.bearStats.bonusP;
+          const totalT = state.bearStats.baseT + state.bearStats.bonusT;
+          state.stackLogs.unshift(`РАЗРЕШЕНО (#${topItem.order}): «${topItem.title}»! Медведь становится ${totalP}/${totalT} до конца хода.`);
+        }
+      } else if (topItem.type === 'shock') {
+        if (!state.bearStats.alive) {
+          state.stackLogs.unshift(`Промах цели (Fizzle): цель уже мертва.`);
+        } else {
+          state.bearStats.damage += 2;
+          const totalT = state.bearStats.baseT + state.bearStats.bonusT;
+          if (state.bearStats.damage >= totalT) {
+            state.bearStats.alive = false;
+            state.stackLogs.unshift(`РАЗРЕШЕНО (#${topItem.order}): «${topItem.title}» наносит 2 урона! Выносливость ${totalT}, урон ${state.bearStats.damage} — Медведь УМИРАЕТ.`);
+          } else {
+            state.stackLogs.unshift(`РАЗРЕШЕНО (#${topItem.order}): «${topItem.title}» наносит 2 урона! Но Медведь сейчас ${state.bearStats.baseP + state.bearStats.bonusP}/${totalT} — ОН ВЫЖИВАЕТ!`);
+          }
+        }
+      } else if (topItem.type === 'bear') {
+        state.bearStats = { baseP: 2, baseT: 2, bonusP: 0, bonusT: 0, damage: 0, alive: true };
+        state.stackLogs.unshift(`РАЗРЕШЕНО (#${topItem.order}): «${topItem.title}» выходит на поле битвы как 2/2!`);
+      }
+      renderStackSimulator();
+    }
+
+    function renderStackSimulator() {
+      const listEl = document.getElementById('stackVisualList');
+      const logEl = document.getElementById('stackResolutionLog');
+      const statusEl = document.getElementById('stackCreatureStatus');
+      if (!listEl || !logEl || !statusEl) return;
+
+      const totalP = state.bearStats.baseP + state.bearStats.bonusP;
+      const totalT = state.bearStats.baseT + state.bearStats.bonusT;
+      if (state.bearStats.alive) {
+        statusEl.className = 'text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+        statusEl.textContent = `На столе: Медведь ${totalP}/${totalT} (${state.bearStats.damage} урона)`;
+      } else {
+        statusEl.className = 'text-[11px] font-mono px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30';
+        statusEl.textContent = `Кладбище: Медведь погиб (${state.bearStats.damage} урона >= ${totalT})`;
+      }
+
+      if (state.stackItems.length === 0) {
+        listEl.innerHTML = `
+          <div class="text-center py-8 px-4 rounded-xl border border-dashed border-slate-800 text-slate-400 text-xs space-y-1">
+            <div class="font-semibold text-slate-300">Стек пуст (CR 405)</div>
+            <div>Добавьте заклинания кнопками выше или нажмите «Пример: Прокачка против Шока».</div>
+          </div>
+        `;
+      } else {
+        const reversed = [...state.stackItems].reverse();
+        listEl.innerHTML = reversed.map((item, idx) => {
+          const isTop = idx === 0;
+          const cardStyle = isTop
+            ? 'bg-gradient-to-r from-amber-500/20 via-slate-900 to-slate-900 border-amber-400 shadow-lg'
+            : 'bg-slate-900/80 border-slate-700/80 opacity-85';
+          return `
+            <div class="p-3 rounded-xl border flex items-center justify-between gap-3 transition ${cardStyle}">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${isTop ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-300'}">
+                  ${isTop ? 'ВЕРШИНА (1-м)' : 'В стеке #' + item.order}
+                </span>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold text-slate-100 truncate">${item.title}</div>
+                  <div class="text-[11px] text-slate-400 truncate">${item.effectText}</div>
+                </div>
+              </div>
+              <span class="mana-pip ${item.manaClass} shrink-0">${item.cost}</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      logEl.innerHTML = state.stackLogs.map((entry, idx) => `
+        <div class="p-2 rounded-lg ${idx === 0 ? 'bg-amber-500/10 border border-amber-500/30 text-amber-100 font-medium' : 'bg-slate-900/70 text-slate-400'}">
+          ${escapeHtml(entry)}
+        </div>
+      `).join('');
+
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    function selectCardZone(zoneNum) {
+      state.selectedCardZone = zoneNum;
+      renderCardAnatomy();
+    }
+
+    function renderCardAnatomy() {
+      const box = document.getElementById('cardAnatomyDetailBox');
+      if (!box) return;
+      const z = CARD_ANATOMY_ZONES[state.selectedCardZone] || CARD_ANATOMY_ZONES[1];
+
+      document.querySelectorAll('.card-zone-btn').forEach((btn) => {
+        const num = Number(btn.getAttribute('data-zone-btn'));
+        if (num === state.selectedCardZone) btn.classList.add('ring-2', 'ring-amber-400');
+        else btn.classList.remove('ring-2', 'ring-amber-400');
+      });
+
+      box.innerHTML = `
+        <div class="space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <span class="text-xs font-mono font-bold text-amber-400 uppercase">${z.cr}</span>
+            <div class="flex items-center gap-1">
+              ${[1, 2, 3, 4, 5, 6].map(n => `
+                <button
+                  type="button"
+                  onclick="selectCardZone(${n})"
+                  class="w-6 h-6 rounded-full text-xs font-mono font-bold transition ${n === state.selectedCardZone ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}"
+                >${n}</button>
+              `).join('')}
+            </div>
+          </div>
+          <h4 class="font-display font-bold text-base text-slate-100">${z.title}</h4>
+          <p class="text-xs sm:text-sm text-amber-200/90 font-medium leading-relaxed">${z.summary}</p>
+          <ul class="space-y-2 text-xs text-slate-300 list-disc list-inside leading-relaxed pt-1">
+            ${z.details.map(d => `<li>${d}</li>`).join('')}
+          </ul>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+          <span>Золотое правило MTG: текст карты главнее книги правил!</span>
+          <span class="font-mono text-amber-400">Зона ${state.selectedCardZone} из 6</span>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 11. ТАБ 4: МУЛЬТИ-ПРОВАЙДЕРНЫЙ AI-СУДЬЯ (GEMINI / DEEPSEEK / OPENAI / CUSTOM)
+    // =========================================================================
+    function loadProviderSettingsFromStorage() {
+      const savedProvider = safeGetStorage('mtg_ai_provider', 'gemini');
+      state.provider = AI_PROVIDERS[savedProvider] ? savedProvider : 'gemini';
+
+      const legacyGeminiKey = safeGetStorage('mtg_gemini_api_key', '');
+      const legacyGeminiModel = safeGetStorage('mtg_gemini_model', 'gemini-2.5-flash');
+
+      ['gemini', 'deepseek', 'openai', 'custom'].forEach((pid) => {
+        const def = AI_PROVIDERS[pid];
+        const fallbackKey = (pid === 'gemini') ? legacyGeminiKey : '';
+        const fallbackModel = (pid === 'gemini') ? legacyGeminiModel : def.defaultModel;
+
+        state.providerSettings[pid] = {
+          apiKey: safeGetStorage('mtg_key_' + pid, fallbackKey),
+          baseUrl: safeGetStorage('mtg_baseurl_' + pid, def.defaultBaseUrl),
+          model: safeGetStorage('mtg_model_' + pid, fallbackModel)
+        };
+      });
+
+      syncActiveProviderFields();
+    }
+
+    function syncActiveProviderFields() {
+      const pid = state.provider;
+      const cfg = state.providerSettings[pid] || state.providerSettings.gemini;
+      state.apiKey = cfg.apiKey || '';
+      state.baseUrl = cfg.baseUrl || AI_PROVIDERS[pid].defaultBaseUrl;
+      state.model = cfg.model || AI_PROVIDERS[pid].defaultModel;
+    }
+
+    function initJudgeTab() {
+      loadProviderSettingsFromStorage();
+
+      const savedHistory = safeGetStorage('mtg_judge_chat_history', '');
+      if (savedHistory) {
+        try {
+          const parsed = JSON.parse(savedHistory);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            state.chatMessages = parsed;
+          }
+        } catch (err) {
+          state.chatMessages = [];
+        }
+      }
+
+      if (state.chatMessages.length === 0) {
+        state.chatMessages = [
+          {
+            role: 'judge',
+            source: 'Судья L2 (Мульти-ИИ готов)',
+            text: 'Выберите провайдера ИИ в выпадающем списке (**Google Gemini**, **DeepSeek**, **OpenAI** или **Custom**), укажите API-ключ или нажмите на быстрый пресет спора выше.\n\n1) **Четкий вердикт:** Да/Нет/Кто победил.\n2) **Механика приоритета/стека:** Лаконично в 2 предложениях.\n3) **Ссылка на правила:** Точный пункт Comprehensive Rules (CR).'
+          }
+        ];
+      }
+
+      renderJudgeSettingsControls();
+      renderJudgeChat();
+    }
+
+    function handleProviderDropdownChange(newProviderId) {
+      if (!AI_PROVIDERS[newProviderId]) return;
+      state.provider = newProviderId;
+      const def = AI_PROVIDERS[newProviderId];
+      const cfg = state.providerSettings[newProviderId];
+
+      // Ensure default Base URL and default model are populated when switching
+      if (!cfg.baseUrl || newProviderId !== 'custom') {
+        cfg.baseUrl = def.defaultBaseUrl;
+      }
+      if (!cfg.model) {
+        cfg.model = def.defaultModel;
+      }
+
+      safeSetStorage('mtg_ai_provider', newProviderId);
+      syncActiveProviderFields();
+      renderJudgeSettingsControls();
+    }
+
+    function handleUniversalKeyInput(val) {
+      const trimmed = val.trim();
+      state.providerSettings[state.provider].apiKey = trimmed;
+      state.apiKey = trimmed;
+
+      const inlineKey = document.getElementById('inlineApiKeyInput');
+      const modalKey = document.getElementById('geminiApiKeyInput');
+      if (inlineKey && inlineKey.value !== val) inlineKey.value = val;
+      if (modalKey && modalKey.value !== val) modalKey.value = val;
+    }
+
+    function handlePresetModelSelectChange(val) {
+      state.providerSettings[state.provider].model = val;
+      state.model = val;
+      const customModelInput = document.getElementById('customModelIdInput');
+      const inlineModelInput = document.getElementById('inlineModelInput');
+      if (customModelInput) customModelInput.value = val;
+      if (inlineModelInput) inlineModelInput.value = val;
+    }
+
+    function handleBaseUrlInput(val) {
+      const trimmed = val.trim();
+      state.providerSettings[state.provider].baseUrl = trimmed;
+      state.baseUrl = trimmed;
+      const inlineUrl = document.getElementById('inlineBaseUrlInput');
+      const modalUrl = document.getElementById('customBaseUrlInput');
+      if (inlineUrl && inlineUrl.value !== val) inlineUrl.value = val;
+      if (modalUrl && modalUrl.value !== val) modalUrl.value = val;
+    }
+
+    function handleModelTextInput(val) {
+      const trimmed = val.trim();
+      state.providerSettings[state.provider].model = trimmed;
+      state.model = trimmed;
+      const inlineModel = document.getElementById('inlineModelInput');
+      const modalModel = document.getElementById('customModelIdInput');
+      if (inlineModel && inlineModel.value !== val) inlineModel.value = val;
+      if (modalModel && modalModel.value !== val) modalModel.value = val;
+    }
+
+    function renderJudgeSettingsControls() {
+      const pid = state.provider;
+      const def = AI_PROVIDERS[pid] || AI_PROVIDERS.gemini;
+      const cfg = state.providerSettings[pid];
+      const hasKey = Boolean(cfg.apiKey && cfg.apiKey.trim().length > 3);
+
+      // Sync both dropdowns (inline + modal)
+      const inlineSelect = document.getElementById('inlineProviderSelect');
+      const modalSelect = document.getElementById('aiProviderSelect');
+      if (inlineSelect) inlineSelect.value = pid;
+      if (modalSelect) modalSelect.value = pid;
+
+      // Sync API key inputs (inline + modal)
+      const inlineKey = document.getElementById('inlineApiKeyInput');
+      const modalKey = document.getElementById('geminiApiKeyInput');
+      if (inlineKey) {
+        inlineKey.placeholder = def.keyPlaceholder;
+        inlineKey.value = cfg.apiKey || '';
+      }
+      if (modalKey) {
+        modalKey.placeholder = def.keyPlaceholder;
+        modalKey.value = cfg.apiKey || '';
+      }
+
+      // Labels & Hints
+      const inlineKeyLabel = document.getElementById('inlineApiKeyLabel');
+      const modalKeyLabel = document.getElementById('modalApiKeyLabel');
+      const hintText = document.getElementById('modalProviderHintText');
+      if (inlineKeyLabel) inlineKeyLabel.textContent = `API-ключ (${def.name}):`;
+      if (modalKeyLabel) modalKeyLabel.textContent = `API-ключ (${def.name}):`;
+      if (hintText) hintText.textContent = def.hint;
+
+      // Preset model dropdown in modal
+      const modelSelect = document.getElementById('geminiModelSelect');
+      if (modelSelect) {
+        modelSelect.innerHTML = def.models
+          .map(m => `<option value="${m}">${m}</option>`)
+          .join('');
+        if (def.models.includes(cfg.model)) {
+          modelSelect.value = cfg.model;
+        }
+      }
+
+      // Base URL & Model text inputs (inline + modal)
+      const inlineUrl = document.getElementById('inlineBaseUrlInput');
+      const modalUrl = document.getElementById('customBaseUrlInput');
+      const inlineModel = document.getElementById('inlineModelInput');
+      const modalModel = document.getElementById('customModelIdInput');
+
+      if (inlineUrl) {
+        inlineUrl.value = cfg.baseUrl || def.defaultBaseUrl;
+        inlineUrl.readOnly = (pid === 'gemini');
+      }
+      if (modalUrl) {
+        modalUrl.value = cfg.baseUrl || def.defaultBaseUrl;
+        modalUrl.readOnly = (pid === 'gemini');
+      }
+      if (inlineModel) inlineModel.value = cfg.model || def.defaultModel;
+      if (modalModel) modalModel.value = cfg.model || def.defaultModel;
+
+      // Status badges in Header and Judge Tab
+      const pill = document.getElementById('apiKeyStatusPill');
+      const cfgLabel = document.getElementById('judgeConfigBtnLabel');
+      const statusBadge = document.getElementById('activeProviderStatusBadge');
+
+      if (pill) {
+        pill.textContent = hasKey ? `${def.shortName} • OK` : `ИИ: ${def.shortName}`;
+      }
+      if (cfgLabel) {
+        cfgLabel.textContent = `Настройки (${def.shortName}: ${cfg.model || def.defaultModel})`;
+      }
+      if (statusBadge) {
+        statusBadge.className = hasKey
+          ? 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300'
+          : 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-300';
+        statusBadge.textContent = hasKey
+          ? `● Активен: ${def.name} (${cfg.model}) • Ключ задан`
+          : `○ Выбран: ${def.name} (${cfg.model}) • Ключ не введён`;
+      }
+    }
+
+    function openApiModal() {
+      renderJudgeSettingsControls();
+      const modal = document.getElementById('apiSettingsModal');
+      if (modal) modal.classList.remove('hidden');
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    function closeApiModal() {
+      const modal = document.getElementById('apiSettingsModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function saveApiSettings() {
+      syncActiveProviderFields();
+      safeSetStorage('mtg_ai_provider', state.provider);
+
+      ['gemini', 'deepseek', 'openai', 'custom'].forEach((pid) => {
+        const c = state.providerSettings[pid];
+        safeSetStorage('mtg_key_' + pid, c.apiKey || '');
+        safeSetStorage('mtg_baseurl_' + pid, c.baseUrl || AI_PROVIDERS[pid].defaultBaseUrl);
+        safeSetStorage('mtg_model_' + pid, c.model || AI_PROVIDERS[pid].defaultModel);
+      });
+
+      // Keep legacy keys in sync
+      safeSetStorage('mtg_gemini_api_key', state.providerSettings.gemini.apiKey || '');
+      safeSetStorage('mtg_gemini_model', state.providerSettings.gemini.model || 'gemini-2.5-flash');
+
+      renderJudgeSettingsControls();
+      closeApiModal();
+      const def = AI_PROVIDERS[state.provider];
+      showToast(`Сохранено: ${def.name} (${state.model})`);
+    }
+
+    function clearSavedApiKey() {
+      const pid = state.provider;
+      state.providerSettings[pid].apiKey = '';
+      safeRemoveStorage('mtg_key_' + pid);
+      if (pid === 'gemini') safeRemoveStorage('mtg_gemini_api_key');
+      syncActiveProviderFields();
+      renderJudgeSettingsControls();
+      showToast('API-ключ для ' + AI_PROVIDERS[pid].name + ' удален');
+    }
+
+    function clearJudgeChat() {
+      state.chatMessages = [
+        {
+          role: 'judge',
+          source: 'Судья L2',
+          text: 'История чата очищена. Выберите пресет спора или задайте вопрос ниже.'
+        }
+      ];
+      safeRemoveStorage('mtg_judge_chat_history');
+      renderJudgeChat();
+      showToast('История чата очищена');
+    }
+
+    function askPresetQuestion(presetIndex) {
+      const preset = JUDGE_PRESETS[presetIndex];
+      if (!preset) return;
+      submitJudgeQuery(preset.question, preset.offlineAnswer);
+    }
+
+    function handleJudgeSubmit(event) {
+      event.preventDefault();
+      const input = document.getElementById('judgeQuestionInput');
+      if (!input) return;
+      const question = input.value.trim();
+      if (!question || state.isAsking) return;
+      input.value = '';
+      submitJudgeQuery(question, null);
+    }
+
+    // Build full chat/completions URL from Base URL (e.g. https://api.deepseek.com/v1 -> https://api.deepseek.com/v1/chat/completions)
+    function resolveChatCompletionsEndpoint(rawBaseUrl, fallbackBaseUrl) {
+      let url = (rawBaseUrl && rawBaseUrl.trim()) ? rawBaseUrl.trim() : fallbackBaseUrl;
+      url = url.replace(/\/+$/, '');
+      if (!url.endsWith('/chat/completions')) {
+        url += '/chat/completions';
+      }
+      return url;
+    }
+
+    // Universal API caller for Google Gemini, DeepSeek, OpenAI, and Custom
+    async function requestAiJudgeVerdict(providerId, cfg, questionText) {
+      const modelId = (cfg.model && cfg.model.trim()) ? cfg.model.trim() : AI_PROVIDERS[providerId].defaultModel;
+      const apiKey = (cfg.apiKey || '').trim();
+
+      // 1. GOOGLE GEMINI API
+      if (providerId === 'gemini') {
+        const geminiBase = (cfg.baseUrl && cfg.baseUrl.trim())
+          ? cfg.baseUrl.trim().replace(/\/+$/, '')
+          : 'https://generativelanguage.googleapis.com/v1beta';
+        const endpoint = `${geminiBase}/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [{ text: JUDGE_SYSTEM_PROMPT }]
+            },
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: questionText }]
+              }
+            ],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 700
+            }
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          const errMsg = data?.error?.message || ('HTTP ' + response.status);
+          throw new Error(errMsg);
+        }
+        return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Пустой ответ от Google Gemini.';
+      }
+
+      // 2. DEEPSEEK / OPENAI / CUSTOM (OpenAI-compatible /chat/completions)
+      const defBase = AI_PROVIDERS[providerId] ? AI_PROVIDERS[providerId].defaultBaseUrl : 'https://api.openai.com/v1';
+      const endpoint = resolveChatCompletionsEndpoint(cfg.baseUrl, defBase);
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + apiKey
+        },
+        body: JSON.stringify({
+          model: modelId,
+          messages: [
+            { role: 'system', content: JUDGE_SYSTEM_PROMPT },
+            { role: 'user', content: questionText }
+          ],
+          temperature: 0.2,
+          max_tokens: 700
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        const errMsg = data?.error?.message || ('HTTP ' + response.status);
+        throw new Error(errMsg);
+      }
+
+      const content = data?.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error('Модель не вернула текстовый ответ в choices[0].message.content');
+      }
+      return content;
+    }
+
+    async function submitJudgeQuery(questionText, presetOfflineAnswer) {
+      if (state.isAsking) return;
+      syncActiveProviderFields();
+
+      state.chatMessages.push({
+        role: 'user',
+        text: questionText
+      });
+      renderJudgeChat();
+
+      const providerId = state.provider;
+      const def = AI_PROVIDERS[providerId] || AI_PROVIDERS.gemini;
+      const cfg = state.providerSettings[providerId];
+      const hasKey = Boolean(cfg && cfg.apiKey && cfg.apiKey.trim().length > 3);
+
+      const loadingEl = document.getElementById('judgeLoadingIndicator');
+      const loadingText = document.getElementById('judgeLoadingText');
+      const sendBtn = document.getElementById('judgeSendBtn');
+      state.isAsking = true;
+
+      if (loadingText) {
+        loadingText.textContent = hasKey
+          ? `Запрос к ${def.name} (${cfg.model})... Судья L2 сверяется с Comprehensive Rules...`
+          : 'Судья L2 проверяет встроенную базу Comprehensive Rules...';
+      }
+      if (loadingEl) loadingEl.classList.remove('hidden');
+      if (sendBtn) sendBtn.disabled = true;
+
+      if (hasKey) {
+        try {
+          const replyText = await requestAiJudgeVerdict(providerId, cfg, questionText);
+          state.chatMessages.push({
+            role: 'judge',
+            source: `${def.name} • ${cfg.model}`,
+            text: replyText
+          });
+        } catch (err) {
+          const fallbackMsg = presetOfflineAnswer
+            ? presetOfflineAnswer + `\n\n*(Примечание: запрос к ${def.name} завершился ошибкой: ${err.message}. Показан эталонный вердикт из локальной базы судьи L2)*`
+            : `Ошибка при обращении к провайдеру **${def.name}** (${err.message}). Проверьте API-ключ, Base URL (\`${cfg.baseUrl}\`) и модель (\`${cfg.model}\`) в настройках выше.`;
+          state.chatMessages.push({
+            role: 'judge',
+            source: `Ошибка API (${def.name})`,
+            text: fallbackMsg
+          });
+        }
+      } else {
+        await new Promise(r => setTimeout(r, 260));
+        const matchedAnswer = presetOfflineAnswer || findSmartOfflineJudgeAnswer(questionText);
+        state.chatMessages.push({
+          role: 'judge',
+          source: 'Локальная база судьи L2 (API-ключ не задан)',
+          text: matchedAnswer
+        });
+      }
+
+      state.isAsking = false;
+      if (loadingEl) loadingEl.classList.add('hidden');
+      if (sendBtn) sendBtn.disabled = false;
+      safeSetStorage('mtg_judge_chat_history', JSON.stringify(state.chatMessages.slice(-20)));
+      renderJudgeChat();
+    }
+
+    function findSmartOfflineJudgeAnswer(query) {
+      const q = query.toLowerCase();
+      if ((q.includes('смертельн') || q.includes('deathtouch')) && (q.includes('пробив') || q.includes('trample'))) {
+        return JUDGE_PRESETS[0].offlineAnswer;
+      }
+      if (q.includes('блок') && (q.includes('убил') || q.includes('уничтож') || q.includes('пожертв') || q.includes('пройдет'))) {
+        return JUDGE_PRESETS[1].offlineAnswer;
+      }
+      if (q.includes('способност') && (q.includes('выход') || q.includes('болезн') || q.includes('сразу'))) {
+        return JUDGE_PRESETS[2].offlineAnswer;
+      }
+      if (q.includes('атак') && (q.includes('поверн') || q.includes('тап'))) {
+        return JUDGE_PRESETS[3].offlineAnswer;
+      }
+      return "1) **Четкий вердикт:** Чтобы получить разбор произвольной ситуации от нейросети, выберите провайдера (**Google Gemini**, **DeepSeek**, **OpenAI** или **Custom**) и введите ваш API-ключ в панели настроек выше.\n\n2) **Механика приоритета/стека:** По правилам MTG заклинания и способности разрешаются с вершины стека по одному (LIFO) после того, как все игроки подряд спасовали приоритет.\n\n3) **Ссылка на правила:** **CR 117** (Timing and Priority), **CR 405** (Stack), **CR 704** (State-Based Actions).";
+    }
+
+    function formatJudgeMarkdown(raw) {
+      const escaped = escapeHtml(raw);
+      return escaped
+        .replace(/\*\*(.+?)\*\*/g, '<strong class="text-amber-300 font-semibold">$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em class="text-slate-400">$1</em>')
+        .replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 rounded bg-slate-900 text-sky-300 font-mono text-[11px]">$1</code>')
+        .replace(/\n/g, '<br/>');
+    }
+
+    function renderJudgeChat() {
+      const container = document.getElementById('judgeChatMessages');
+      if (!container) return;
+
+      container.innerHTML = state.chatMessages.map((msg) => {
+        if (msg.role === 'user') {
+          return `
+            <div class="flex justify-end">
+              <div class="max-w-[85%] rounded-2xl rounded-br-sm px-3.5 py-2.5 bg-amber-500 text-slate-950 text-xs sm:text-sm font-medium shadow">
+                ${escapeHtml(msg.text)}
+              </div>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="flex justify-start">
+              <div class="max-w-[92%] rounded-2xl rounded-bl-sm p-3.5 bg-slate-950/95 border border-slate-800 text-xs sm:text-sm text-slate-200 space-y-1.5 shadow">
+                <div class="flex items-center justify-between gap-3 border-b border-slate-800/80 pb-1.5">
+                  <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-400">
+                    <i data-lucide="gavel" class="w-3.5 h-3.5"></i>
+                    <span>${escapeHtml(msg.source || 'Судья L2')}</span>
+                  </span>
+                  <span class="text-[10px] font-mono text-slate-500">Comprehensive Rules</span>
+                </div>
+                <div class="leading-relaxed">${formatJudgeMarkdown(msg.text)}</div>
+              </div>
+            </div>
+          `;
+        }
+      }).join('');
+
+      container.scrollTop = container.scrollHeight;
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    // =========================================================================
+    // 12. МОДАЛЬНОЕ ОКНО И ЭКСПОРТ MTG_DATA.JSON
+    // =========================================================================
+    function openJsonPreviewModal() {
+      const modal = document.getElementById('jsonPreviewModal');
+      const codeBlock = document.getElementById('jsonModalCodeBlock');
+      if (codeBlock) codeBlock.textContent = JSON.stringify(state.mechanics, null, 2);
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeJsonPreviewModal() {
+      const modal = document.getElementById('jsonPreviewModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function copyMtgDataJson() {
+      const jsonText = JSON.stringify(state.mechanics, null, 2);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(jsonText).then(() => {
+          showToast('mtg_data.json скопирован в буфер обмена');
+        }).catch(() => {
+          fallbackCopyText(jsonText);
+        });
+      } else {
+        fallbackCopyText(jsonText);
+      }
+    }
+
+    function fallbackCopyText(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast('mtg_data.json скопирован в буфер обмена');
+      } catch (err) {
+        showToast('Не удалось скопировать');
+      }
+      document.body.removeChild(ta);
+    }
+
+    function downloadMtgDataJson() {
+      const jsonText = JSON.stringify(state.mechanics, null, 2);
+      const blob = new Blob([jsonText], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'mtg_data.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Файл mtg_data.json скачан');
+    }
+
+    // =========================================================================
+    // 13. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      initFlatSteps();
+      renderPhasesTab();
+      loadClassicStackScenario();
+      renderCardAnatomy();
+      initJudgeTab();
+      switchTab('phases');
+      loadMtgDataJson();
+    });
+  </script>
+</body>
+</html>
