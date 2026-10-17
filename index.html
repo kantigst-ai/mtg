@@ -176,10 +176,14 @@
           <i data-lucide="scale" class="w-4 h-4"></i>
           <span>4. AI-Судья (L2)</span>
         </button>
+		<button onclick="switchTab('rules')" data-tab-btn="rules" type="button" class="tab-nav-btn flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition">
+          <i data-lucide="book-open" class="w-4 h-4"></i>
+          <span>5. Рулбук</span>
+        </button>
       </div>
     </nav>
   </header>
-
+  
   <!-- ==========================================
        MAIN CONTENT CONTAINER
        ========================================== -->
@@ -490,6 +494,7 @@
             </button>
           </div>
         </div>
+		
 
         <!-- INLINE AI PROVIDER SETTINGS PANEL (Directly visible in Tab 4 + synced with Modal) -->
         <div class="p-3.5 sm:p-4 rounded-xl bg-slate-950/90 border border-amber-500/30 space-y-3">
@@ -619,6 +624,34 @@
         </form>
       </div>
     </section>
+	
+	    <!-- ==========================================
+         TAB 5: Правила PDF
+         ========================================== -->
+    <section id="tab-rules" class="tab-content hidden flex-col h-[calc(100vh-140px)] min-h-[500px]">
+      <div class="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-t-lg px-4 py-2.5">
+        <div class="flex items-center gap-2 text-xs text-slate-300 font-medium">
+          <i data-lucide="file-text" class="w-4 h-4 text-amber-400"></i>
+          <span>Официальные правила MTG (PDF)</span>
+        </div>
+        <a href="rules.pdf" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded transition border border-slate-700">
+          <span>Открыть во весь экран</span>
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+        </a>
+      </div>
+      
+      <div class="flex-1 w-full bg-slate-950 border-x border-b border-slate-800 rounded-b-lg overflow-hidden">
+        <iframe 
+          src="rules.pdf#toolbar=1&navpanes=0" 
+          class="w-full h-full border-0" 
+          title="MTG Comprehensive Rules">
+          <p class="p-6 text-center text-sm text-slate-400">
+            Браузер не поддерживает встроенный просмотр PDF. 
+            <a href="rules.pdf" target="_blank" class="text-amber-400 underline">Скачайте файл</a> для чтения.
+          </p>
+        </iframe>
+      </div>
+    </section>
 
   </main>
 
@@ -626,7 +659,7 @@
        MOBILE-FIRST BOTTOM NAVIGATION TABBAR
        ========================================== -->
   <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 backdrop-blur-xl bg-slate-950/95 border-t border-slate-800/90 px-2 py-1.5" aria-label="Мобильное меню разделов">
-    <div class="grid grid-cols-4 gap-1 max-w-md mx-auto">
+    <div class="grid grid-cols-5 gap-1 max-w-md mx-auto">
       <button onclick="switchTab('phases')" data-tab-btn="phases" type="button" class="tab-nav-btn flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[11px] font-medium transition">
         <i data-lucide="clock" class="w-4 h-4 mb-0.5"></i>
         <span>Фазы хода</span>
@@ -642,6 +675,10 @@
       <button onclick="switchTab('judge')" data-tab-btn="judge" type="button" class="tab-nav-btn flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[11px] font-medium transition">
         <i data-lucide="scale" class="w-4 h-4 mb-0.5"></i>
         <span>AI-Судья</span>
+		<button onclick="switchTab('rules')" data-tab-btn="rules" type="button" class="tab-nav-btn flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition">
+          <i data-lucide="book-open" class="w-4 h-4"></i>
+          <span>Рулбук</span>
+        </button>
       </button>
     </div>
   </nav>
